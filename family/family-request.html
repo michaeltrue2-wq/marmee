@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marmee — Get help around the house</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;--honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#8A6A1F;--blush:#E6C6B4;--ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;--clay:#B4552F}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--ivory);color:var(--ink);font-size:16.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.12;letter-spacing:-.01em}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--honey-soft);display:inline-block}
+  .top{position:sticky;top:0;z-index:10;background:var(--ivory);border-bottom:1px solid var(--line)}
+  .top-in{max-width:580px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+  .brand{font-family:'Fraunces',serif;font-size:1.35rem;font-weight:600;color:var(--pine);display:flex;align-items:center;gap:9px}
+  .signin{color:var(--honey-deep);font-weight:600;text-decoration:none;font-size:.95rem}
+  .signin:hover{text-decoration:underline}
+  .prog{max-width:580px;margin:0 auto;padding:0 20px}
+  .prog-track{height:6px;background:var(--ivory-dim);border-radius:100px;margin-top:14px;overflow:hidden}
+  .prog-fill{height:100%;background:var(--honey);border-radius:100px;width:0;transition:width .35s ease}
+  .prog-lbl{font-size:.82rem;color:var(--muted);font-weight:600;margin-top:7px}
+  .stage{max-width:580px;margin:0 auto;padding:26px 20px 150px}
+  .step{display:none;animation:fade .32s ease}.step.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--honey-deep);margin-bottom:12px}
+  h1{font-size:1.95rem;margin-bottom:10px}
+  .lead{color:var(--muted);font-size:1.05rem;margin-bottom:24px;max-width:42ch}
+  .promise{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px}
+  .promise .pic{font-size:1.4rem;line-height:1}.promise b{display:block;font-size:1.02rem;margin-bottom:1px}.promise span{color:var(--muted);font-size:.95rem}
+  .cards{display:flex;flex-direction:column;gap:14px}
+  .card{position:relative;background:#fff;border:2px solid var(--line);border-radius:18px;padding:20px;text-align:left;font-family:inherit;cursor:pointer;transition:border-color .15s,background .15s;display:flex;gap:16px;align-items:flex-start;width:100%}
+  .card:hover{border-color:var(--honey)}.card.on{border-color:var(--honey);background:linear-gradient(180deg,rgba(200,153,58,.08),#fff)}
+  .card .cic{font-size:1.9rem;line-height:1;flex-shrink:0;margin-top:2px}.card .cbody{flex:1;min-width:0}
+  .card h2{font-size:1.3rem;margin-bottom:3px;color:var(--pine)}.card p{color:var(--muted);font-size:.97rem}
+  .card .tick{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;transition:all .15s}
+  .card.on .tick{background:var(--honey);border-color:var(--honey)}
+  .card .flag{position:absolute;top:-11px;left:18px;background:var(--pine);color:var(--honey-soft);font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 11px;border-radius:100px}
+  .field{margin-bottom:20px}
+  label.fl{display:block;font-weight:600;font-size:1.02rem;margin-bottom:9px}label.fl .opt{color:var(--muted);font-weight:400;font-size:.92rem}
+  input[type=text],input[type=email],input[type=password],textarea,select{width:100%;padding:15px 16px;border:1.5px solid var(--line);border-radius:13px;font-family:inherit;font-size:1.05rem;background:#fff;color:var(--ink)}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235C6B60' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 18px center}
+  .chips{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{background:#fff;border:1.5px solid var(--line);color:var(--ink);padding:11px 16px;border-radius:100px;font-family:inherit;font-size:1rem;font-weight:500;cursor:pointer;transition:all .14s;min-height:46px}
+  .chip:hover{border-color:var(--honey)}.chip.on{background:var(--pine);border-color:var(--pine);color:var(--ivory);font-weight:600}
+  #finishMsg{display:none;color:var(--clay);font-weight:600;font-size:.95rem;margin:4px 0 16px}
+  .done-ic{width:76px;height:76px;border-radius:50%;background:var(--pine);color:var(--honey-soft);display:flex;align-items:center;justify-content:center;font-size:2.1rem;margin-bottom:20px}
+  .timeline{list-style:none;margin:22px 0 0}
+  .timeline li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--ivory-dim)}.timeline li:first-child{border-top:none}
+  .timeline .tn{width:28px;height:28px;border-radius:50%;background:var(--ivory-dim);color:var(--pine);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;font-family:'Fraunces',serif}
+  .timeline b{display:block}.timeline span{color:var(--muted);font-size:.95rem}
+  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+  .nav-in{max-width:580px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center}
+  .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;padding:14px 6px}.back:hover{color:var(--pine)}.back.hide{visibility:hidden}
+  .next{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:16px;border-radius:100px;font-family:inherit;font-weight:700;font-size:1.08rem;cursor:pointer;min-height:54px}
+  .next:hover{background:var(--honey-soft)}.next:disabled{opacity:.6;cursor:default}
+  .buildtag{position:fixed;bottom:6px;right:9px;font-size:10px;color:var(--honey-deep);opacity:.5;font-family:monospace;z-index:9999}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="top-in"><div class="brand"><span class="dot"></span>Marmee</div><a class="signin" href="index.html">Already have an account? Sign in</a></div>
+  <div class="prog"><div class="prog-track"><div class="prog-fill" id="fill"></div></div><div class="prog-lbl" id="plbl">A few quick steps</div></div>
+</div>
+
+<div class="stage">
+  <!-- 0 WELCOME -->
+  <div class="step on" data-nav="hidden">
+    <div class="eyebrow">Welcome</div>
+    <h1>Get a trusted hand around the house.</h1>
+    <p class="lead">Tell us what would help most, and we'll match you with an experienced mom nearby who's done this before. About two minutes.</p>
+    <div class="promise"><span class="pic">💚</span><div><b>A mom who's been there</b><span>Vetted, background-checked, and genuinely good at this.</span></div></div>
+    <div class="promise"><span class="pic">🗓️</span><div><b>On your schedule</b><span>Weekly, every other week, or a one-time hand.</span></div></div>
+    <div class="promise"><span class="pic">🤝</span><div><b>The same familiar face</b><span>Someone your household comes to know and trust.</span></div></div>
+  </div>
+
+  <!-- 1 AREAS -->
+  <div class="step">
+    <div class="eyebrow">Step 1 · What you need</div>
+    <h1>What would help most?</h1>
+    <p class="lead">Pick as many as you like — your Marmee handles the whole area, so you stop managing it.</p>
+    <div class="cards" id="areas">
+      <button class="card" data-v="Home" onclick="tog(this)"><span class="tick">✓</span><span class="cic">🏡</span><span class="cbody"><h2>Home</h2><p>Cleaning, laundry, tidying, dishes, plants &amp; yard.</p></span></button>
+      <button class="card" data-v="Food" onclick="tog(this)"><span class="tick">✓</span><span class="cic">🍳</span><span class="cbody"><h2>Food</h2><p>Meal prep, cooking, packing lunches, groceries.</p></span></button>
+      <button class="card" data-v="Errands" onclick="tog(this)"><span class="tick">✓</span><span class="cic">🚗</span><span class="cbody"><h2>Errands</h2><p>Pharmacy, returns, pickups, the out-and-about running.</p></span></button>
+      <button class="card" data-v="Keeping track" onclick="tog(this)"><span class="flag">Our specialty</span><span class="tick">✓</span><span class="cic">🗓️</span><span class="cbody"><h2>Keeping track</h2><p>Appointments, the calendar, coordinating sitters &amp; vendors.</p></span></button>
+    </div>
+  </div>
+
+  <!-- 2 HOME -->
+  <div class="step">
+    <div class="eyebrow">Step 2 · Your home</div>
+    <h1>A little about your household.</h1>
+    <div class="field">
+      <label class="fl">Your neighborhood</label>
+      <select id="hood">
+        <option value="">Choose your area</option>
+        <option>Munjoy Hill</option><option>West End</option><option>East End</option>
+        <option>Deering</option><option>East Bayside</option><option>Bayside</option>
+        <option>North Deering</option><option>Rosemont</option><option>South Portland</option>
+        <option>Cape Elizabeth</option><option>Falmouth</option><option>Scarborough</option>
+        <option>Westbrook</option><option>Other nearby</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="fl">Kids at home <span class="opt">— optional</span></label>
+      <div class="chips" data-single>
+        <button class="chip" onclick="one(this)">No kids</button>
+        <button class="chip" onclick="one(this)">1 kid</button>
+        <button class="chip" onclick="one(this)">2 kids</button>
+        <button class="chip" onclick="one(this)">3+ kids</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 WHEN -->
+  <div class="step">
+    <div class="eyebrow">Step 3 · How often</div>
+    <h1>When would you like help?</h1>
+    <div class="field">
+      <label class="fl">How often</label>
+      <div class="chips" data-single>
+        <button class="chip" onclick="one(this)">Weekly</button>
+        <button class="chip" onclick="one(this)">Every 2 weeks</button>
+        <button class="chip" onclick="one(this)">One-time</button>
+        <button class="chip" onclick="one(this)">Not sure yet</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="fl">Times that work</label>
+      <div class="chips">
+        <button class="chip" onclick="tog(this)">Mornings</button>
+        <button class="chip" onclick="tog(this)">Afternoons</button>
+        <button class="chip" onclick="tog(this)">Evenings</button>
+        <button class="chip" onclick="tog(this)">Weekends</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 ACCOUNT -->
+  <div class="step">
+    <div class="eyebrow">Step 4 · Last thing</div>
+    <h1>Create your account.</h1>
+    <p class="lead">So you can see your match and manage your visits.</p>
+    <div class="field">
+      <label class="fl">Your name</label>
+      <input type="text" id="nm" placeholder="First name (or 'The Delgados')">
+    </div>
+    <div class="field">
+      <label class="fl">Email</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="fl">Choose a password</label>
+      <input type="password" id="pass" placeholder="At least 6 characters" autocomplete="new-password">
+    </div>
+    <div id="finishMsg"></div>
+  </div>
+
+  <!-- 5 DONE -->
+  <div class="step" data-nav="hidden">
+    <div class="done-ic">✓</div>
+    <h1 id="donehead">You're all set!</h1>
+    <p class="lead">We've got your request. Here's what happens next:</p>
+    <ul class="timeline">
+      <li><span class="tn">1</span><div><b>We find your Marmee</b><span>We hand-pick an experienced mom near you who fits.</span></div></li>
+      <li><span class="tn">2</span><div><b>You meet her</b><span>See her profile and message her right in the app.</span></div></li>
+      <li><span class="tn">3</span><div><b>Your first visit</b><span>Book a time that works, and she takes it from there.</span></div></li>
+    </ul>
+    <div style="margin-top:24px"><a class="next" href="index.html" style="display:inline-block;text-align:center;text-decoration:none;padding:15px 28px;width:auto">Go to my account</a></div>
+  </div>
+</div>
+
+<div class="nav" id="navbar"><div class="nav-in">
+  <button class="back hide" id="backBtn" onclick="back()">← Back</button>
+  <button class="next" id="nextBtn" onclick="next()">Get started</button>
+</div></div>
+
+<div class="buildtag">Marmee family · build 1</div>
+
+<script>
+  console.log("Marmee family-request — build 1");
+  const SUPABASE_URL = 'https://dlargnwijzrlruaxzsgj.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
+  let db = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+  const steps = [...document.querySelectorAll('.step')];
+  let i = 0; const REAL = 4;
+  const val = s => (document.querySelector(s)?.value || '').trim();
+  const txt = el => el ? el.textContent.trim() : '';
+  function safe(fn, dflt){ try{ return fn(); }catch(e){ return dflt; } }
+  function msg(t){ const e=document.getElementById('finishMsg'); e.textContent=t; e.style.display=t?'block':'none'; }
+
+  function show(){
+    steps.forEach((s,x)=>s.classList.toggle('on', x===i));
+    const nav=document.getElementById('navbar'), back=document.getElementById('backBtn'), next=document.getElementById('nextBtn'), fill=document.getElementById('fill'), plbl=document.getElementById('plbl');
+    let pct;
+    if(i===0){pct=0; plbl.textContent='A few quick steps';}
+    else if(i>=steps.length-1){pct=100; plbl.textContent='Done';}
+    else {pct=Math.round((i/REAL)*100); plbl.textContent='Step '+i+' of '+REAL;}
+    fill.style.width=pct+'%';
+    nav.style.display=(i===steps.length-1)?'none':'flex';
+    back.classList.toggle('hide', i<=0);
+    if(i===0) next.textContent='Get started';
+    else if(i===steps.length-2) next.textContent='Create my account';
+    else next.textContent='Continue';
+    window.scrollTo?.(0,0);
+  }
+  function next(){ if(i===steps.length-2){ finish(); return; } if(i>=steps.length-1) return; i++; show(); }
+  function back(){ if(i>0){i--; show();} }
+  function tog(el){ el.classList.toggle('on'); }
+  function one(el){ const g=el.closest('.chips')||el.parentElement; if(el.classList.contains('on')){el.classList.remove('on');return;} [...g.querySelectorAll('.chip,.card')].forEach(c=>c.classList.remove('on')); el.classList.add('on'); }
+
+  function collect(){
+    const S=steps;
+    const areas = safe(()=>[...S[1].querySelectorAll('.card.on')].map(c=>c.dataset.v), []);
+    const neighborhood = safe(()=>document.querySelector('#hood')?.value, null) || null;
+    const household = safe(()=>txt(S[2].querySelector('.chips[data-single] .chip.on')), '') || null;
+    const wc = safe(()=>S[3].querySelectorAll('.chips'), []);
+    const frequency = safe(()=>txt(wc[0].querySelector('.chip.on')), '') || null;
+    const times = safe(()=>[...wc[1].querySelectorAll('.chip.on')].map(c=>c.textContent.trim()), []);
+    const window_ = times.length ? times.join(', ') : null;
+    const name = val('#nm') || null;
+    return { areas, neighborhood, household, frequency, window: window_, name };
+  }
+
+  async function finish(){
+    const btn=document.getElementById('nextBtn');
+    btn.textContent='Creating your account…'; btn.disabled=true; msg('');
+    const reset=(m)=>{ if(m) msg(m); btn.textContent='Create my account'; btn.disabled=false; };
+    try{
+      if(!db){ reset('Could not reach the server. Check your internet and try again.'); return; }
+      const email=val('#email'), pass=document.querySelector('#pass')?.value||'';
+      if(!email||!pass){ reset('Enter an email and password to create your account.'); return; }
+      if(pass.length<6){ reset('Please choose a password with at least 6 characters.'); return; }
+      const d=collect();
+      if(!d.name){ reset('Please add your name.'); return; }
+      const meta={ role:'family', name:d.name, neighborhood:d.neighborhood, household:d.household,
+        request:{ areas:d.areas, frequency:d.frequency, window:d.window } };
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('The server took too long to respond. Check your connection and try again.')),15000));
+      const { data:su, error } = await Promise.race([ db.auth.signUp({ email, password:pass, options:{ data:meta } }), timeout ]);
+      if(error){ let m=error.message||'Sign-up failed.'; if(/already/i.test(m)) m='That email is already registered. Try signing in instead, or use a different email.'; reset(m); return; }
+      const v=val('#nm'); document.getElementById('donehead').textContent = v ? `You're all set, ${v.split(' ')[0].replace('The','').trim()||v}!` : "You're all set!";
+      i=steps.length-1; show();
+    }catch(e){ reset('Something went wrong: '+(e&&e.message?e.message:'unknown error')+'. Please try again.'); }
+  }
+  show();
+</script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marmee — Your account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;--honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#8A6A1F;--blush:#E6C6B4;--ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;--clay:#B4552F}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--ivory);color:var(--ink);font-size:16.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.14;letter-spacing:-.01em}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--honey-soft);display:inline-block}
+  .wrap{max-width:560px;margin:0 auto;padding:24px 20px 60px}
+  /* gate */
+  .gate{position:fixed;inset:0;z-index:200;background:var(--pine);display:flex;align-items:center;justify-content:center;padding:22px}
+  .gate.hidden{display:none}
+  .gate-card{background:var(--ivory);border-radius:22px;padding:34px 28px;width:100%;max-width:420px;box-shadow:0 30px 70px rgba(0,0,0,.3)}
+  .gate-logo{font-family:'Fraunces',serif;font-size:1.5rem;font-weight:600;color:var(--pine);display:flex;align-items:center;gap:10px;margin-bottom:5px}
+  .gate-sub{color:var(--muted);font-size:.95rem;margin-bottom:22px}
+  .gate label{display:block;font-weight:600;font-size:.95rem;margin-bottom:7px}
+  .gate input{width:100%;padding:14px 15px;border:1.5px solid var(--line);border-radius:12px;font-family:inherit;font-size:1.05rem;margin-bottom:15px;background:#fff}
+  .gate input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .gate-btn{width:100%;background:var(--honey);color:var(--pine-deep);border:none;padding:15px;border-radius:100px;font-weight:700;font-size:1.05rem;cursor:pointer;min-height:52px}
+  .gate-btn:hover{background:var(--honey-soft)}
+  .gate-err{display:none;color:var(--clay);font-weight:600;font-size:.92rem;text-align:center;margin-top:12px}
+  .gate-apply{margin-top:22px;padding-top:18px;border-top:1px solid var(--ivory-dim);text-align:center;font-size:.98rem;color:var(--muted)}
+  .gate-apply a{color:var(--honey-deep);font-weight:700;text-decoration:none}.gate-apply a:hover{text-decoration:underline}
+  /* app */
+  .app{display:none}.app.on{display:block}
+  .hdr{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .ava{width:50px;height:50px;border-radius:50%;background:var(--pine);color:var(--honey-soft);display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:600;font-size:1.2rem;flex-shrink:0}
+  .hdr .greet{font-family:'Fraunces',serif;font-size:1.5rem;color:var(--pine)}
+  .hdr .sub{color:var(--muted);font-size:.92rem}
+  .section-t{font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--honey-deep);font-weight:700;margin:26px 0 12px}
+  .hero{background:var(--pine);color:var(--ivory);border-radius:22px;padding:22px;position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(228,185,104,.16),transparent 68%)}
+  .hero .hk{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--honey-soft);font-weight:700;margin-bottom:12px}
+  .hero h2{font-size:1.7rem;font-weight:500;color:var(--ivory);position:relative}
+  .hero .sub2{color:rgba(246,241,231,.8);margin-top:6px;position:relative}
+  .momcard{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;gap:16px;align-items:center}
+  .momcard .mava{width:56px;height:56px;border-radius:50%;background:linear-gradient(140deg,var(--blush),var(--honey-soft));display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:600;color:var(--pine-deep);font-size:1.3rem;flex-shrink:0}
+  .momcard b{font-size:1.15rem;color:var(--pine)}.momcard .mm{color:var(--muted);font-size:.92rem}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .tag{font-size:.78rem;background:var(--ivory);border:1px solid var(--line);color:var(--pine);padding:3px 10px;border-radius:100px;font-weight:500}
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin-bottom:12px}
+  .visit{display:flex;gap:14px;align-items:flex-start}
+  .visit .vt{font-family:'Fraunces',serif;font-weight:600;color:var(--pine);width:64px;flex-shrink:0}
+  .visit b{font-size:1.05rem}.visit .vm{color:var(--muted);font-size:.9rem;margin-top:2px}
+  .pill{font-size:.74rem;font-weight:700;padding:4px 11px;border-radius:100px}
+  .pill.up{background:rgba(200,153,58,.18);color:var(--honey-deep)}.pill.good{background:rgba(30,58,46,.1);color:var(--pine)}
+  .prow{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:12px;display:flex;align-items:center;gap:14px;cursor:pointer}
+  .prow:hover{border-color:var(--honey)}.prow .pic{font-size:1.3rem;width:26px;text-align:center}
+  .prow .pl{flex:1}.prow .pl b{display:block}.prow .pl span{color:var(--muted);font-size:.88rem}
+  .prow .arr{color:var(--muted)}
+  .req{color:var(--muted);font-size:.95rem}
+  .buildtag{position:fixed;bottom:6px;right:9px;font-size:10px;color:var(--honey-deep);opacity:.5;font-family:monospace;z-index:9999}
+
+  .chat{position:fixed;inset:0;z-index:300;background:var(--ivory);display:none;flex-direction:column}
+  .chat.on{display:flex}
+  .chat-head{background:var(--pine);color:var(--ivory);padding:15px 18px;display:flex;align-items:center;gap:13px;font-family:'Fraunces',serif;font-size:1.15rem;font-weight:600;flex-shrink:0}
+  .chat-back{background:rgba(246,241,231,.15);border:none;color:var(--ivory);width:34px;height:34px;border-radius:50%;font-size:1.2rem;cursor:pointer}
+  .chat-msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .chat-empty{color:var(--muted);text-align:center;margin:auto;font-size:.95rem}
+  .bubble{max-width:78%;padding:11px 15px;border-radius:18px;font-size:1rem;line-height:1.4;word-break:break-word;white-space:pre-wrap}
+  .bubble.them{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+  .bubble.me{background:var(--pine);color:var(--ivory);align-self:flex-end;border-bottom-right-radius:5px}
+  .chat-foot{display:flex;gap:10px;padding:13px 16px;border-top:1px solid var(--line);background:#fff;flex-shrink:0}
+  .chat-foot input{flex:1;padding:13px 15px;border:1.5px solid var(--line);border-radius:100px;font-family:inherit;font-size:1rem;background:var(--ivory);color:var(--ink)}
+  .chat-foot input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .chat-foot button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 22px;font-family:inherit;font-weight:700;cursor:pointer}
+  .chat{position:fixed;inset:0;z-index:300;background:var(--ivory);display:none;flex-direction:column}
+  .chat.on{display:flex}
+  .chat-head{background:var(--pine);color:var(--ivory);padding:15px 18px;display:flex;align-items:center;gap:13px;font-family:'Fraunces',serif;font-size:1.15rem;font-weight:600;flex-shrink:0}
+  .chat-back{background:rgba(246,241,231,.15);border:none;color:var(--ivory);width:34px;height:34px;border-radius:50%;font-size:1.2rem;cursor:pointer}
+  .chat-msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .chat-empty{color:var(--muted);text-align:center;margin:auto;font-size:.95rem}
+  .bubble{max-width:78%;padding:11px 15px;border-radius:18px;font-size:1rem;line-height:1.4;word-break:break-word;white-space:pre-wrap}
+  .bubble.them{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+  .bubble.me{background:var(--pine);color:var(--ivory);align-self:flex-end;border-bottom-right-radius:5px}
+  .chat-foot{display:flex;gap:10px;padding:13px 16px;border-top:1px solid var(--line);background:#fff;flex-shrink:0}
+  .chat-foot input{flex:1;padding:13px 15px;border:1.5px solid var(--line);border-radius:100px;font-family:inherit;font-size:1rem;background:var(--ivory);color:var(--ink)}
+  .chat-foot input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .chat-foot button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 22px;font-family:inherit;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- GATE -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-logo"><span class="dot"></span>Marmee</div>
+    <div class="gate-sub">Sign in to see your match and visits.</div>
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')document.getElementById('pass').focus()">
+    <label for="pass">Password</label>
+    <input id="pass" type="password" placeholder="Your password" onkeydown="if(event.key==='Enter')login()">
+    <button class="gate-btn" id="loginBtn" onclick="login()">Sign in</button>
+    <div class="gate-err" id="gateErr"></div>
+    <div class="gate-apply">Need help around the house? <a href="family-request.html">Request a Marmee →</a></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app"><div class="wrap">
+  <div class="hdr">
+    <div class="ava" id="ava">·</div>
+    <div><div class="greet" id="greet">Welcome</div><div class="sub" id="sub"></div></div>
+  </div>
+  <div id="body"></div>
+  <div class="section-t">Your account</div>
+  <div class="prow" onclick="stub('This would let you edit your request.')"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openChat()"><span class="pic">💬</span><div class="pl"><b>Messages</b><span>Chat with your Marmee</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
+</div></div>
+
+<div class="buildtag">Marmee family · build 2</div>
+
+<script>
+  console.log("Marmee family-index — build 2");
+  const SUPABASE_URL='https://dlargnwijzrlruaxzsgj.supabase.co';
+  const SUPABASE_KEY='sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
+  let db=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+  const $=s=>document.querySelector(s);
+  const arr=a=>Array.isArray(a)?a:(a?String(a).replace(/[{}"]/g,'').split(',').filter(Boolean):[]);
+  const initials=t=>{const p=(t||'').replace(/^The /,'').trim().split(' ');return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'');};
+  function fmtDay(d){ if(!d) return 'To be scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+  function gerr(m){ const e=$('#gateErr'); e.textContent=m; e.style.display=m?'block':'none'; }
+  function stub(m){ alert(m.replace(/^This would /,'').replace(/\.$/,'')); }
+  let me=null, myReqs=[], myVisits=[], momById={};
+
+  async function login(){
+    if(!db){ gerr('Could not reach the server. Refresh and try again.'); return; }
+    const email=$('#email').value.trim(), pass=$('#pass').value;
+    if(!email||!pass){ gerr('Enter your email and password.'); return; }
+    const b=$('#loginBtn'); b.textContent='Signing in…'; b.disabled=true; gerr('');
+    try{
+      const { error }=await db.auth.signInWithPassword({ email, password:pass });
+      if(error){ gerr(error.message||'That didn\'t work — check your details.'); }
+      else{ await enter(); }
+    }catch(e){ gerr('Something went wrong. Try again.'); }
+    b.textContent='Sign in'; b.disabled=false;
+  }
+  async function signout(){ if(db) await db.auth.signOut(); location.reload(); }
+
+  async function enter(){
+    const uid=(await db.auth.getUser()).data.user.id;
+    const { data:rows, error }=await db.from('families').select('*').eq('user_id', uid);
+    if(error||!rows||!rows.length){ gerr('We couldn\'t find your account. If you just requested help, give it a moment.'); return; }
+    me=rows[0];
+    const [{data:rq},{data:vs}]=await Promise.all([
+      db.from('requests').select('*').eq('family_id', me.id),
+      db.from('visits').select('*').eq('family_id', me.id)
+    ]);
+    myReqs=rq||[]; myVisits=vs||[];
+    const momIds=[...new Set(myVisits.map(v=>v.mom_id).filter(Boolean))];
+    if(momIds.length){ const {data:m}=await db.from('moms').select('*').in('id', momIds); (m||[]).forEach(x=>momById[x.id]=x); }
+    $('#gate').classList.add('hidden'); $('#app').classList.add('on');
+    render();
+  }
+
+  function render(){
+    const nm=me.name||'there';
+    $('#greet').textContent = `Hi, ${nm.replace(/^The /,'')}`;
+    $('#ava').textContent = (nm.replace(/^The /,'')[0]||'·').toUpperCase();
+    $('#sub').textContent = me.neighborhood ? ('Marmee · '+me.neighborhood) : 'Marmee';
+
+    const matched = myVisits.length>0 || Object.keys(momById).length>0;
+    const mom = Object.values(momById)[0];
+    const upcoming = myVisits.filter(v=>v.status==='upcoming'||v.status==='confirmed')
+      .sort((a,b)=>(a.visit_date||'').localeCompare(b.visit_date||''));
+    let html='';
+
+    if(mom){
+      html += `<div class="section-t">Your Marmee</div>
+        <div class="momcard"><div class="mava">${initials((mom.first_name||'')+' '+(mom.last_initial||''))}</div>
+        <div><b>${(mom.first_name||'')+' '+(mom.last_initial||'')}</b>
+        <div class="mm">${mom.rating?('★ '+Number(mom.rating).toFixed(1)+' · '):''}${mom.neighborhood||''}</div>
+        <div class="chips">${arr(mom.areas).map(a=>`<span class="tag">${a}</span>`).join('')}</div></div></div>`;
+    } else {
+      html += `<div class="hero"><div class="hk">Your match</div>
+        <h2>We're finding your Marmee</h2>
+        <div class="sub2">We're hand-picking an experienced mom near you. We'll be in touch soon — hang tight.</div></div>`;
+    }
+
+    html += `<div class="section-t">Upcoming visits</div>`;
+    if(upcoming.length){
+      upcoming.forEach(v=>{
+        const m=momById[v.mom_id];
+        html += `<div class="card"><div class="visit"><div class="vt">${v.visit_time||'—'}</div>
+          <div style="flex:1"><b>${fmtDay(v.visit_date)}</b>
+          <div class="vm">${m?((m.first_name||'')+' '+(m.last_initial||'')+' · '):''}${v.hours?(v.hours+' hours'):''}</div>
+          <div class="chips">${arr(v.areas).map(a=>`<span class="tag">${a}</span>`).join('')}</div></div>
+          <span class="pill up">Upcoming</span></div></div>`;
+      });
+    } else {
+      html += `<div class="card req">No visits scheduled yet${mom?' — you and '+mom.first_name+' can set up your first one soon.':'. They\'ll appear here once you\'re matched.'}</div>`;
+    }
+    $('#body').innerHTML = html;
+
+    const req=myReqs[0];
+    $('#reqSummary').textContent = req ? (arr(req.areas).join(', ')+(req.frequency?(' · '+req.frequency):'')) : 'No request on file';
+  }
+
+  (async function(){
+    if(!db){ gerr('Could not load. Refresh the page.'); return; }
+    try{ const { data:{ session } }=await db.auth.getSession(); if(session){ await enter(); } }catch(e){}
+  })();
+
+  function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  let chatFam=null, chatMom=null, chatPoll=null;
+  async function loadChat(){
+    if(!chatFam||!chatMom) return;
+    try{
+      const { data } = await db.from('messages').select('*').eq('family_id',chatFam).eq('mom_id',chatMom).order('created_at',{ascending:true});
+      const box=document.getElementById('chatMsgs'); const msgs=data||[];
+      box.innerHTML = msgs.length ? msgs.map(m=>'<div class="bubble '+(m.sender_role==='family'?'me':'them')+'">'+esc(m.body)+'</div>').join('') : '<div class="chat-empty">No messages yet. Say hello \ud83d\udc4b</div>';
+      box.scrollTop = box.scrollHeight;
+    }catch(e){}
+  }
+  async function sendChat(){
+    const inp=document.getElementById('chatInput'); const body=(inp.value||'').trim(); if(!body||!chatFam||!chatMom) return;
+    inp.value='';
+    try{ await db.from('messages').insert({ family_id:chatFam, mom_id:chatMom, sender_role:'family', body }); await loadChat(); }
+    catch(e){ inp.value=body; }
+  }
+  function closeChat(){ document.getElementById('chat').classList.remove('on'); if(chatPoll){clearInterval(chatPoll);chatPoll=null;} }
+
+  function openChat(){
+    const momId = Object.keys(momById)[0];
+    if(!momId){ alert("You can message your Marmee here once you're matched."); return; }
+    chatFam=me.id; chatMom=momId;
+    const mom=momById[momId];
+    document.getElementById('chatName').textContent=((mom.first_name||'')+' '+(mom.last_initial||'')).trim()||'Your Marmee';
+    document.getElementById('chat').classList.add('on');
+    loadChat(); if(chatPoll)clearInterval(chatPoll); chatPoll=setInterval(loadChat,4000);
+  }
+
+</script>
+
+<div class="chat" id="chat">
+  <div class="chat-head"><button class="chat-back" onclick="closeChat()">←</button><span id="chatName">Chat</span></div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-foot">
+    <input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+
+<div class="chat" id="chat">
+  <div class="chat-head"><button class="chat-back" onclick="closeChat()">←</button><span id="chatName">Chat</span></div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-foot">
+    <input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button onclick="sendChat()">Send</button>
+  </div>
+</div>
+<script>
+  function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  let chatMomId=null, chatPoll=null;
+  function openMessages(){
+    const mom = Object.values(momById)[0];
+    if(mom) openChat(mom.id);
+    else alert('You can message your Marmee once you\'re matched.');
+  }
+  function openChat(momId){
+    if(!momId) return;
+    chatMomId=momId;
+    const mom=momById[momId];
+    document.getElementById('chatName').textContent = mom?((mom.first_name||'')+' '+(mom.last_initial||'')).trim():'Your Marmee';
+    document.getElementById('chat').classList.add('on');
+    loadChat(); if(chatPoll)clearInterval(chatPoll); chatPoll=setInterval(loadChat,4000);
+  }
+  function closeChat(){ document.getElementById('chat').classList.remove('on'); if(chatPoll){clearInterval(chatPoll);chatPoll=null;} }
+  async function loadChat(){
+    if(!chatMomId||!me) return;
+    try{
+      const { data } = await db.from('messages').select('*').eq('family_id',me.id).eq('mom_id',chatMomId).order('created_at',{ascending:true});
+      const box=document.getElementById('chatMsgs'); const msgs=data||[];
+      box.innerHTML = msgs.length ? msgs.map(m=>'<div class="bubble '+(m.sender_role==='family'?'me':'them')+'">'+esc(m.body)+'</div>').join('') : '<div class="chat-empty">No messages yet. Say hello \ud83d\udc4b</div>';
+      box.scrollTop = box.scrollHeight;
+    }catch(e){}
+  }
+  async function sendChat(){
+    const inp=document.getElementById('chatInput'); const body=(inp.value||'').trim(); if(!body||!chatMomId||!me) return;
+    inp.value='';
+    try{ await db.from('messages').insert({ family_id:me.id, mom_id:chatMomId, sender_role:'family', body }); await loadChat(); }
+    catch(e){ inp.value=body; }
+  }
+</script>
+</body>
+</html>

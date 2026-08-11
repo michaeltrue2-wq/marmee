@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marmee — Your dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;
+    --honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#8A6A1F;--blush:#E6C6B4;
+    --ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--ivory);color:var(--ink);
+       font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.12;letter-spacing:-0.01em}
+  .app{max-width:460px;margin:0 auto;min-height:100vh;background:var(--ivory);position:relative;padding-bottom:96px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--honey-soft);display:inline-block}
+
+  /* header */
+  .hdr{padding:22px 22px 8px;display:flex;align-items:center;gap:14px}
+  .ava{width:52px;height:52px;border-radius:50%;background:linear-gradient(140deg,var(--blush),var(--honey-soft));display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:600;color:var(--pine-deep);font-size:1.3rem;flex-shrink:0}
+  .hdr .hi{flex:1;min-width:0}
+  .hdr .hi .greet{font-family:'Fraunces',serif;font-size:1.5rem;color:var(--pine);font-weight:500}
+  .hdr .hi .date{color:var(--muted);font-size:0.92rem}
+  .availtog{border:1.5px solid var(--line);background:#fff;border-radius:100px;padding:8px 14px;font-family:inherit;font-weight:600;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;gap:7px;color:var(--pine)}
+  .availtog .adot{width:9px;height:9px;border-radius:50%;background:#4a8f5f}
+  .availtog.off{color:var(--muted)}
+  .availtog.off .adot{background:var(--muted)}
+
+  .view{display:none;padding:8px 22px 0}
+  .view.on{display:block}
+
+  .section-t{font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--honey-deep);font-weight:700;margin:24px 0 12px}
+
+  /* next visit hero */
+  .hero{background:var(--pine);color:var(--ivory);border-radius:22px;padding:22px;position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(228,185,104,0.16),transparent 68%)}
+  .hero .hk{font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--honey-soft);font-weight:700;margin-bottom:12px}
+  .hero .when{font-family:'Fraunces',serif;font-size:1.7rem;font-weight:500;line-height:1.1;margin-bottom:4px}
+  .hero .fam{font-size:1.1rem;color:var(--ivory);position:relative}
+  .hero .det{color:rgba(246,241,231,0.78);font-size:0.96rem;margin-top:8px;position:relative}
+  .hero .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;position:relative}
+  .hero .tag{background:rgba(246,241,231,0.14);color:var(--ivory);font-size:0.82rem;padding:4px 12px;border-radius:100px;font-weight:500}
+  .hero .btns{display:flex;gap:10px;margin-top:18px;position:relative}
+  .hbtn{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:13px;border-radius:100px;font-family:inherit;font-weight:700;font-size:0.98rem;cursor:pointer;min-height:48px}
+  .hbtn:hover{background:var(--honey-soft)}
+  .hbtn.sec{background:rgba(246,241,231,0.14);color:var(--ivory)}
+  .hbtn.sec:hover{background:rgba(246,241,231,0.24)}
+
+  /* offer card */
+  .offer{background:#fff;border:2px solid var(--honey);border-radius:20px;padding:20px;margin-top:16px;position:relative}
+  .offer .flag{position:absolute;top:-11px;left:20px;background:var(--honey);color:var(--pine-deep);font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:4px 12px;border-radius:100px}
+  .offer h3{font-size:1.25rem;color:var(--pine);margin:4px 0 3px}
+  .offer .om{color:var(--muted);font-size:0.96rem}
+  .offer .tags{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 0}
+  .offer .tag{background:var(--ivory);border:1px solid var(--line);color:var(--pine);font-size:0.82rem;padding:4px 12px;border-radius:100px;font-weight:500}
+  .offer .btns{display:flex;gap:10px;margin-top:16px}
+  .obtn{flex:1;border:none;padding:13px;border-radius:100px;font-family:inherit;font-weight:700;font-size:0.98rem;cursor:pointer;min-height:48px}
+  .obtn.yes{background:var(--pine);color:var(--ivory)}.obtn.yes:hover{background:var(--pine-deep)}
+  .obtn.no{background:#fff;border:1.5px solid var(--line);color:var(--muted)}.obtn.no:hover{border-color:var(--muted);color:var(--ink)}
+
+  /* mini earnings */
+  .mini{display:flex;gap:12px;margin-top:16px}
+  .mcard{flex:1;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;cursor:pointer;font-family:inherit}
+  .mcard:hover{border-color:var(--honey)}
+  .mcard .mk{font-size:0.8rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+  .mcard .mv{font-family:'Fraunces',serif;font-size:1.9rem;color:var(--pine);font-weight:500;margin-top:6px;line-height:1}
+  .mcard .mv small{font-size:0.9rem;color:var(--muted)}
+
+  /* families row */
+  .fam-row{display:flex;gap:14px;overflow-x:auto;padding:2px 0 4px;-webkit-overflow-scrolling:touch}
+  .fchip{flex-shrink:0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;min-width:140px;cursor:pointer}
+  .fchip:hover{border-color:var(--honey)}
+  .fchip .fav{width:40px;height:40px;border-radius:50%;background:var(--pine);color:var(--honey-soft);display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:600;margin-bottom:9px}
+  .fchip b{display:block;font-size:1rem}
+  .fchip span{color:var(--muted);font-size:0.86rem}
+
+  /* generic visit rows */
+  .daygroup{margin-bottom:20px}
+  .dayhead{font-family:'Fraunces',serif;font-size:1.15rem;color:var(--pine);font-weight:600;margin-bottom:2px;display:flex;justify-content:space-between;align-items:baseline}
+  .dayhead span{font-family:'Hanken Grotesk';font-size:0.85rem;color:var(--muted);font-weight:500}
+  .visit{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:12px;display:flex;gap:14px;align-items:flex-start}
+  .visit .vt{font-family:'Fraunces',serif;font-weight:600;color:var(--pine);font-size:1rem;width:64px;flex-shrink:0}
+  .visit .vb{flex:1;min-width:0}
+  .visit .vb b{font-size:1.05rem}
+  .visit .vb .vm{color:var(--muted);font-size:0.92rem;margin-top:2px}
+  .visit .vb .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .visit .vb .tag{background:var(--ivory);border:1px solid var(--line);color:var(--pine);font-size:0.78rem;padding:3px 10px;border-radius:100px}
+  .vbtns{display:flex;gap:9px;margin-top:12px}
+  .vbtn{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:9px 15px;font-family:inherit;font-weight:600;font-size:0.9rem;cursor:pointer}
+  .vbtn:hover{border-color:var(--honey)}
+  .pill{font-size:0.74rem;font-weight:700;padding:4px 11px;border-radius:100px}
+  .pill.done{background:rgba(30,58,46,0.1);color:var(--pine)}
+  .pill.up{background:rgba(200,153,58,0.18);color:var(--honey-deep)}
+
+  /* earnings tab */
+  .ebig{background:var(--pine);color:var(--ivory);border-radius:22px;padding:24px;text-align:center;margin-top:4px}
+  .ebig .ek{font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--honey-soft);font-weight:700}
+  .ebig .ev{font-family:'Fraunces',serif;font-size:3rem;font-weight:500;line-height:1;margin:8px 0 4px}
+  .ebig .es{color:rgba(246,241,231,0.78);font-size:0.95rem}
+  .payout{background:rgba(200,153,58,0.12);border:1px solid rgba(200,153,58,0.3);border-radius:16px;padding:16px 18px;margin-top:14px;display:flex;align-items:center;gap:13px}
+  .payout .pi{font-size:1.4rem}
+  .payout b{display:block}.payout span{color:var(--muted);font-size:0.9rem}
+  .erow{display:flex;align-items:center;gap:14px;padding:15px 0;border-top:1px solid var(--ivory-dim)}
+  .erow:first-of-type{border-top:none}
+  .erow .eb{flex:1}.erow .eb b{font-size:1rem}.erow .eb span{color:var(--muted);font-size:0.88rem;display:block}
+  .erow .ea{font-family:'Fraunces',serif;font-weight:600;color:var(--pine);font-size:1.15rem}
+  .reassure{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-top:18px;color:var(--muted);font-size:0.95rem;display:flex;gap:12px;align-items:flex-start}
+  .reassure .ri{font-size:1.3rem}
+
+  /* profile tab */
+  .pcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center;margin-top:4px}
+  .pcard .pava{width:82px;height:82px;border-radius:50%;background:linear-gradient(140deg,var(--blush),var(--honey-soft));display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:600;color:var(--pine-deep);font-size:2rem;margin:0 auto 14px}
+  .pcard h2{font-size:1.5rem;color:var(--pine)}
+  .pcard .prate{color:var(--muted);margin-top:4px}
+  .prow{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:12px;display:flex;align-items:center;gap:14px;cursor:pointer}
+  .prow:hover{border-color:var(--honey)}
+  .prow .pic{font-size:1.3rem;width:26px;text-align:center}
+  .prow .pl{flex:1}.prow .pl b{display:block;font-size:1rem}.prow .pl span{color:var(--muted);font-size:0.88rem}
+  .prow .arr{color:var(--muted)}
+  .tagline{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .tagline .tag{background:var(--ivory);border:1px solid var(--line);color:var(--pine);font-size:0.86rem;padding:6px 13px;border-radius:100px;font-weight:500}
+
+  /* bottom nav */
+  .tabbar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:30}
+  .tabbar-in{max-width:460px;margin:0 auto;display:flex}
+  .tab{flex:1;background:none;border:none;padding:11px 4px 12px;font-family:inherit;cursor:pointer;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;transition:color .15s}
+  .tab .ti{font-size:1.35rem;line-height:1}
+  .tab .tl{font-size:0.74rem;font-weight:600}
+  .tab.on{color:var(--pine)}
+  .tab.on .ti{transform:translateY(-1px)}
+
+  /* toast */
+  .toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--pine-deep);color:var(--ivory);padding:13px 22px;border-radius:100px;font-weight:600;z-index:50;opacity:0;transition:all .3s;display:flex;gap:10px;align-items:center;max-width:88vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .dot{background:var(--honey-soft)}
+
+  /* login gate */
+  .gate{position:fixed;inset:0;z-index:200;background:var(--pine);display:flex;align-items:center;justify-content:center;padding:22px}
+  .gate.hidden{display:none}
+  .gate-card{background:var(--ivory);border-radius:22px;padding:34px 28px;width:100%;max-width:420px;box-shadow:0 30px 70px rgba(0,0,0,0.3)}
+  .gate-logo{font-family:'Fraunces',serif;font-size:1.5rem;font-weight:600;color:var(--pine);display:flex;align-items:center;gap:10px;margin-bottom:5px}
+  .gate-sub{color:var(--muted);font-size:0.95rem;margin-bottom:22px}
+  .gate label{display:block;font-weight:600;font-size:0.95rem;margin-bottom:7px}
+  .gate input{width:100%;padding:14px 15px;border:1.5px solid var(--line);border-radius:12px;font-family:inherit;font-size:1.05rem;margin-bottom:15px;background:#fff}
+  .gate input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .gate-btn{width:100%;background:var(--honey);color:var(--pine-deep);border:none;padding:15px;border-radius:100px;font-weight:700;font-size:1.05rem;cursor:pointer;min-height:52px}
+  .gate-btn:hover{background:var(--honey-soft)}
+  .gate-err{display:none;color:#B4552F;font-weight:600;font-size:0.92rem;text-align:center;margin-top:12px}
+  .gate-apply{margin-top:22px;padding-top:18px;border-top:1px solid var(--ivory-dim);text-align:center;font-size:0.98rem;color:var(--muted)}
+  .gate-apply a{color:var(--honey-deep);font-weight:700;text-decoration:none}
+  .gate-apply a:hover{text-decoration:underline}
+  /* vetting status screen */
+  .vet{display:none;max-width:520px;margin:0 auto;padding:30px 22px 60px;min-height:100vh}
+  .vet.on{display:block}
+  .vet .vbrand{font-family:'Fraunces',serif;font-size:1.4rem;font-weight:600;color:var(--pine);display:flex;align-items:center;gap:9px;margin-bottom:26px}
+  .vet .vic{width:72px;height:72px;border-radius:50%;background:var(--pine);color:var(--honey-soft);display:flex;align-items:center;justify-content:center;font-size:2rem;margin-bottom:18px}
+  .vet h1{font-family:'Fraunces',serif;font-size:1.9rem;color:var(--pine);font-weight:500;margin-bottom:8px}
+  .vet .vlead{color:var(--muted);font-size:1.05rem;margin-bottom:8px}
+  .vstep{display:flex;gap:14px;align-items:flex-start;padding:15px 0;border-top:1px solid var(--ivory-dim)}
+  .vstep:first-of-type{border-top:none}
+  .vstep .vd{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0;color:#fff}
+  .vstep.done .vd{background:var(--pine);border-color:var(--pine)}
+  .vstep.now .vd{border-color:var(--honey);background:rgba(200,153,58,0.2)}
+  .vstep b{display:block;font-size:1.05rem}
+  .vstep.done b,.vstep.now b{color:var(--pine)}
+  .vstep span{color:var(--muted);font-size:0.92rem}
+  .vsignout{margin-top:26px;background:none;border:1.5px solid var(--line);color:var(--muted);border-radius:100px;padding:12px 22px;font-family:inherit;font-weight:600;cursor:pointer}
+
+  .chat{position:fixed;inset:0;z-index:300;background:var(--ivory);display:none;flex-direction:column}
+  .chat.on{display:flex}
+  .chat-head{background:var(--pine);color:var(--ivory);padding:15px 18px;display:flex;align-items:center;gap:13px;font-family:'Fraunces',serif;font-size:1.15rem;font-weight:600;flex-shrink:0}
+  .chat-back{background:rgba(246,241,231,.15);border:none;color:var(--ivory);width:34px;height:34px;border-radius:50%;font-size:1.2rem;cursor:pointer}
+  .chat-msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .chat-empty{color:var(--muted);text-align:center;margin:auto;font-size:.95rem}
+  .bubble{max-width:78%;padding:11px 15px;border-radius:18px;font-size:1rem;line-height:1.4;word-break:break-word;white-space:pre-wrap}
+  .bubble.them{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+  .bubble.me{background:var(--pine);color:var(--ivory);align-self:flex-end;border-bottom-right-radius:5px}
+  .chat-foot{display:flex;gap:10px;padding:13px 16px;border-top:1px solid var(--line);background:#fff;flex-shrink:0}
+  .chat-foot input{flex:1;padding:13px 15px;border:1.5px solid var(--line);border-radius:100px;font-family:inherit;font-size:1rem;background:var(--ivory);color:var(--ink)}
+  .chat-foot input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .chat-foot button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 22px;font-family:inherit;font-weight:700;cursor:pointer}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- ============ LOGIN GATE ============ -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-logo"><span class="dot"></span>Marmee</div>
+    <div class="gate-sub">Sign in to see your visits and earnings.</div>
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="you@example.com" autocomplete="username"
+           onkeydown="if(event.key==='Enter')document.getElementById('pass').focus()">
+    <label for="pass">Password</label>
+    <input id="pass" type="password" placeholder="Your password" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')login()">
+    <button class="gate-btn" id="loginBtn" onclick="login()">Sign in</button>
+    <div class="gate-err" id="gateErr"></div>
+    <div class="gate-apply">New to Marmee? <a href="apply.html">Start your application →</a></div>
+  </div>
+</div>
+
+<!-- ============ VETTING STATUS (logged in, not active yet) ============ -->
+<div class="vet" id="vet">
+  <div class="vbrand"><span class="dot"></span>Marmee</div>
+  <div class="vic">🌿</div>
+  <h1 id="vetHead">Welcome!</h1>
+  <p class="vlead">Your application is in. Here's where things stand — we'll be in touch soon.</p>
+  <div id="vetSteps" style="margin-top:18px"></div>
+  <button class="vsignout" onclick="signout()">Sign out</button>
+</div>
+
+<!-- ============ DASHBOARD (logged in, active) ============ -->
+<div class="app" id="app" style="display:none">
+  <div class="hdr">
+    <div class="ava" id="ava">·</div>
+    <div class="hi">
+      <div class="greet" id="greet">Welcome</div>
+      <div class="date" id="today"></div>
+    </div>
+    <button class="availtog" id="availtog" onclick="toggleAvail()"><span class="adot"></span><span id="availtxt">Available</span></button>
+  </div>
+
+  <div class="view on" id="v-home"></div>
+  <div class="view" id="v-schedule"></div>
+  <div class="view" id="v-earnings"></div>
+  <div class="view" id="v-you"></div>
+
+  <div class="tabbar"><div class="tabbar-in">
+    <button class="tab on" data-t="home" onclick="go('home')"><span class="ti">🏠</span><span class="tl">Home</span></button>
+    <button class="tab" data-t="schedule" onclick="go('schedule')"><span class="ti">🗓️</span><span class="tl">Schedule</span></button>
+    <button class="tab" data-t="earnings" onclick="go('earnings')"><span class="ti">💵</span><span class="tl">Earnings</span></button>
+    <button class="tab" data-t="you" onclick="go('you')"><span class="ti">🌿</span><span class="tl">You</span></button>
+  </div></div>
+
+  <div class="toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://dlargnwijzrlruaxzsgj.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
+  const RATE = 28;
+  let db = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+  const $ = s => document.querySelector(s);
+  const arr = a => Array.isArray(a) ? a : (a ? String(a).replace(/[{}"]/g,'').split(',').filter(Boolean) : []);
+  const initials = t => { const p=(t||'').replace(/^The /,'').trim().split(' '); return ((p[0]||'')[0]||'')+((p[1]||'')[0]||''); };
+  function fmtDay(d){ if(!d) return 'Scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+
+  let me = null, myVisits = [], famById = {};
+  let toastTimer;
+  function toast(m){ $('#toastMsg').textContent=m; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),2600); }
+  function stub(m){ toast(m.replace(/^This would /,'').replace(/\.$/,'')); }
+  function msg(f){ toast('Messaging with '+f+' would open here'); }
+  function gerr(m){ const e=$('#gateErr'); e.textContent=m; e.style.display=m?'block':'none'; }
+
+  async function login(){
+    if(!db){ gerr('Could not reach the server. Check your internet and refresh.'); return; }
+    const email=$('#email').value.trim(), pass=$('#pass').value;
+    if(!email||!pass){ gerr('Enter your email and password.'); return; }
+    const b=$('#loginBtn'); b.textContent='Signing in…'; b.disabled=true; gerr('');
+    try{
+      const { error } = await db.auth.signInWithPassword({ email, password: pass });
+      if(error){ gerr(error.message || 'That didn\'t work — check your details.'); }
+      else { await enter(); }
+    }catch(e){ gerr('Something went wrong. Try again.'); }
+    b.textContent='Sign in'; b.disabled=false;
+  }
+  async function signout(){ if(db) await db.auth.signOut(); location.reload(); }
+
+  async function enter(){
+    // load this mom's own record
+    const { data: rows, error } = await db.from('moms').select('*').eq('user_id', (await db.auth.getUser()).data.user.id);
+    if(error || !rows || !rows.length){
+      gerr('We couldn\'t find your profile. If you just applied, give it a moment, or contact us.');
+      return;
+    }
+    me = rows[0];
+    $('#gate').classList.add('hidden');
+    if(me.status !== 'active'){ showVetting(); return; }
+    // active: load visits + her families
+    const { data: v } = await db.from('visits').select('*').eq('mom_id', me.id);
+    myVisits = v || [];
+    const famIds = [...new Set(myVisits.map(x=>x.family_id).filter(Boolean))];
+    if(famIds.length){
+      const { data: fam } = await db.from('families').select('*').in('id', famIds);
+      (fam||[]).forEach(f=> famById[f.id]=f);
+    }
+    $('#app').style.display='block';
+    renderAll();
+  }
+
+  function showVetting(){
+    $('#vetHead').textContent = 'Welcome, ' + (me.first_name||'') + '!';
+    const STEPS = [
+      ['Application received','Thanks — we\'ve got your details.'],
+      ['Checking your references','A quiet call or two over the next few days.'],
+      ['Background check','You\'ll complete it on the secure link we send.'],
+      ['A warm welcome call','We say hello and answer any questions.']
+    ];
+    const stage = me.vetting_stage || 0;
+    let html='';
+    STEPS.forEach((s,i)=>{
+      const cls = i<stage ? 'done' : (i===stage ? 'now' : '');
+      html += `<div class="vstep ${cls}"><div class="vd">${i<stage?'✓':''}</div><div><b>${s[0]}</b><span>${s[1]}</span></div></div>`;
+    });
+    html += `<div class="vstep"><div class="vd"></div><div><b>Your profile goes live</b><span>And we start finding families near you.</span></div></div>`;
+    $('#vetSteps').innerHTML = html;
+    $('#vet').classList.add('on');
+  }
+
+  // ---------- dashboard ----------
+  function go(t){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+    $('#v-'+t).classList.add('on');
+    document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.t===t));
+    window.scrollTo?.(0,0);
+  }
+  function toggleAvail(){
+    const t=$('#availtog'); t.classList.toggle('off');
+    const away = t.classList.contains('off');
+    $('#availtxt').textContent = away ? 'Away' : 'Available';
+    if(me) db.from('moms').update({ status: away ? 'paused' : 'active' }).eq('id', me.id);
+    toast(away ? 'You\'re set to Away — no new matches' : 'You\'re Available again');
+  }
+  function takeBreak(){ toast('Matches paused — enjoy your break'); }
+  const famName = id => famById[id] ? famById[id].name : 'A family';
+  const momName = () => (me.first_name+' '+(me.last_initial||'')).trim();
+
+  function renderAll(){
+    const hr = new Date().getHours();
+    const greet = hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
+    $('#greet').textContent = `${greet}, ${me.first_name}`;
+    $('#ava').textContent = (me.first_name||'·')[0];
+    $('#today').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    renderHome(); renderSchedule(); renderEarnings(); renderYou();
+  }
+
+  function renderHome(){
+    const upcoming = myVisits.filter(v=>v.status==='upcoming'||v.status==='confirmed')
+      .sort((a,b)=>(a.visit_date||'').localeCompare(b.visit_date||''));
+    const next = upcoming[0];
+    const earned = myVisits.filter(v=>v.status==='completed').reduce((s,v)=>s+(Number(v.hours)||0)*(Number(v.rate)||RATE),0);
+    const famIds = [...new Set(myVisits.map(v=>v.family_id).filter(Boolean))];
+    let hero;
+    if(next){
+      hero = `<div class="hero">
+        <div class="hk">Next visit · ${fmtDay(next.visit_date)}</div>
+        <div class="when">${next.visit_time||''}</div>
+        <div class="fam">${famName(next.family_id)}${famById[next.family_id]?(' · '+(famById[next.family_id].neighborhood||'')):''}</div>
+        <div class="det">${next.hours?next.hours+' hours':''}</div>
+        <div class="tags">${arr(next.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="btns">
+          <button class="hbtn" onclick="openChat('${next.family_id}')">💬 Message</button>
+          <button class="hbtn sec" onclick="stub('This would open directions.')">📍 Directions</button>
+        </div></div>`;
+    } else {
+      hero = `<div class="hero"><div class="hk">Your schedule</div>
+        <div class="when" style="font-size:1.3rem">No visits booked yet</div>
+        <div class="det">We're finding families near you — you'll see your first visit here.</div></div>`;
+    }
+    let fams = famIds.map(id=>`<div class="fchip" onclick="openChat('${id}')"><div class="fav">${initials(famName(id))}</div><b>${famName(id)}</b><span>${famById[id]?.neighborhood||''}</span></div>`).join('');
+    if(!fams) fams = `<div class="fchip" style="cursor:default"><span style="color:var(--muted)">No families yet</span></div>`;
+    $('#v-home').innerHTML = `
+      <div class="section-t">Your next visit</div>${hero}
+      <div class="section-t">So far</div>
+      <div class="mini">
+        <button class="mcard" onclick="go('earnings')"><div class="mk">Earned</div><div class="mv">$${Math.round(earned)}</div></button>
+        <button class="mcard" onclick="go('schedule')"><div class="mk">Upcoming</div><div class="mv">${upcoming.length}<small> visit${upcoming.length===1?'':'s'}</small></div></button>
+      </div>
+      <div class="section-t">Your families</div>
+      <div class="fam-row">${fams}</div>`;
+  }
+
+  function renderSchedule(){
+    const up = myVisits.filter(v=>v.status!=='cancelled')
+      .sort((a,b)=>(a.visit_date||'').localeCompare(b.visit_date||'')||(a.visit_time||'').localeCompare(b.visit_time||''));
+    let html='';
+    if(!up.length){ html = `<div class="hero"><div class="hk">Upcoming</div><div class="when" style="font-size:1.2rem">Nothing scheduled yet</div></div>`; }
+    const days=[...new Set(up.map(v=>v.visit_date))];
+    days.forEach(d=>{
+      const dv=up.filter(v=>v.visit_date===d);
+      html+=`<div class="daygroup"><div class="dayhead">${fmtDay(d)} <span>${dv.length} visit${dv.length===1?'':'s'}</span></div>`;
+      dv.forEach(v=>{
+        html+=`<div class="visit"><div class="vt">${v.visit_time||'—'}</div>
+          <div class="vb"><b>${famName(v.family_id)}</b>
+          <div class="vm">${famById[v.family_id]?.neighborhood||''}${v.hours?(' · '+v.hours+' hours'):''}</div>
+          <div class="tags">${arr(v.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+          <div class="vbtns"><button class="vbtn" onclick="openChat('${v.family_id}')">💬 Message</button>
+          <button class="vbtn" onclick="stub('This would open directions.')">📍 Directions</button></div></div>
+          <span class="pill ${v.status==='completed'?'done':'up'}">${(v.status||'').charAt(0).toUpperCase()+(v.status||'').slice(1)}</span></div>`;
+      });
+      html+=`</div>`;
+    });
+    $('#v-schedule').innerHTML = `<div class="section-t">Upcoming</div>${html}`;
+  }
+
+  function renderEarnings(){
+    const done = myVisits.filter(v=>v.status==='completed')
+      .sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
+    const total = done.reduce((s,v)=>s+(Number(v.hours)||0)*(Number(v.rate)||RATE),0);
+    let rows = done.map(v=>`<div class="erow"><div class="eb"><b>${famName(v.family_id)}</b><span>${fmtDay(v.visit_date)} · ${v.hours||0} hours</span></div><div class="ea">$${(Number(v.hours)||0)*(Number(v.rate)||RATE)}</div></div>`).join('');
+    if(!rows) rows = `<div class="erow"><div class="eb"><span style="color:var(--muted)">No completed visits yet — your earnings will show here.</span></div></div>`;
+    $('#v-earnings').innerHTML = `
+      <div class="section-t">Earnings</div>
+      <div class="ebig"><div class="ek">Earned so far</div><div class="ev">$${Math.round(total)}</div><div class="es">across ${done.length} visit${done.length===1?'':'s'}</div></div>
+      <div class="section-t">Recent visits</div>${rows}
+      <div class="reassure"><span class="ri">🌿</span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${RATE}/hour</b>, always.</div></div>`;
+  }
+
+  function renderYou(){
+    const areas = arr(me.areas);
+    const avail = arr(me.times_available).join(', ') || 'Not set yet';
+    $('#v-you').innerHTML = `
+      <div class="section-t">Your profile</div>
+      <div class="pcard">
+        <div class="pava">${(me.first_name||'·')[0]}</div>
+        <h2>${momName()}</h2>
+        <div class="prate">${me.rating?('★ '+Number(me.rating).toFixed(1)+' · '):''}${me.neighborhood||''}</div>
+        <div class="tagline">${areas.map(a=>`<span class="tag">${a}</span>`).join('')}</div>
+      </div>
+      <div class="prow" onclick="stub('This would let you edit your days and times.')"><span class="pic">🗓️</span><div class="pl"><b>Availability</b><span>${avail}</span></div><span class="arr">›</span></div>
+      <div class="prow" onclick="stub('This would let you edit the areas you help with.')"><span class="pic">❖</span><div class="pl"><b>Areas you help with</b><span>${areas.join(', ')||'—'}</span></div><span class="arr">›</span></div>
+      <div class="prow" onclick="stub('This would open your payout settings.')"><span class="pic">💳</span><div class="pl"><b>Payment</b><span>Set up direct deposit</span></div><span class="arr">›</span></div>
+      <div class="prow" onclick="takeBreak()"><span class="pic">☕</span><div class="pl"><b>Take a break</b><span>Pause new matches while you're away</span></div><span class="arr">›</span></div>
+      <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>`;
+  }
+
+  // boot: if already logged in, go straight in
+  (async function(){
+    if(!db){ gerr('Could not load. Check your internet and refresh.'); return; }
+    try{ const { data:{ session } } = await db.auth.getSession(); if(session){ await enter(); } }catch(e){}
+  })();
+
+  function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  let chatFam=null, chatMom=null, chatPoll=null;
+  async function loadChat(){
+    if(!chatFam||!chatMom) return;
+    try{
+      const { data } = await db.from('messages').select('*').eq('family_id',chatFam).eq('mom_id',chatMom).order('created_at',{ascending:true});
+      const box=document.getElementById('chatMsgs'); const msgs=data||[];
+      box.innerHTML = msgs.length ? msgs.map(m=>'<div class="bubble '+(m.sender_role==='mom'?'me':'them')+'">'+esc(m.body)+'</div>').join('') : '<div class="chat-empty">No messages yet. Say hello \ud83d\udc4b</div>';
+      box.scrollTop = box.scrollHeight;
+    }catch(e){}
+  }
+  async function sendChat(){
+    const inp=document.getElementById('chatInput'); const body=(inp.value||'').trim(); if(!body||!chatFam||!chatMom) return;
+    inp.value='';
+    try{ await db.from('messages').insert({ family_id:chatFam, mom_id:chatMom, sender_role:'mom', body }); await loadChat(); }
+    catch(e){ inp.value=body; }
+  }
+  function closeChat(){ document.getElementById('chat').classList.remove('on'); if(chatPoll){clearInterval(chatPoll);chatPoll=null;} }
+
+  function openChat(familyId){
+    if(!familyId) return;
+    chatFam=familyId; chatMom=me.id;
+    document.getElementById('chatName').textContent=famName(familyId);
+    document.getElementById('chat').classList.add('on');
+    loadChat(); if(chatPoll)clearInterval(chatPoll); chatPoll=setInterval(loadChat,4000);
+  }
+
+</script>
+
+<div class="chat" id="chat">
+  <div class="chat-head"><button class="chat-back" onclick="closeChat()">←</button><span id="chatName">Chat</span></div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-foot">
+    <input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marmee — Set up your profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;
+    --honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#8A6A1F;--blush:#E6C6B4;
+    --ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--ivory);color:var(--ink);
+       font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.12;letter-spacing:-0.01em}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--honey-soft);display:inline-block}
+
+  /* top bar */
+  .top{position:sticky;top:0;z-index:10;background:var(--ivory);border-bottom:1px solid var(--line)}
+  .top-in{max-width:560px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+  .brand{font-family:'Fraunces',serif;font-size:1.35rem;font-weight:600;color:var(--pine);display:flex;align-items:center;gap:9px}
+  .later{background:none;border:none;color:var(--muted);font-family:inherit;font-size:0.95rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .later:hover{color:var(--pine)}
+  /* progress */
+  .prog{max-width:560px;margin:0 auto;padding:0 20px}
+  .prog-track{height:6px;background:var(--ivory-dim);border-radius:100px;margin-top:14px;overflow:hidden}
+  .prog-fill{height:100%;background:var(--honey);border-radius:100px;width:0;transition:width .35s ease}
+  .prog-lbl{font-size:0.82rem;color:var(--muted);font-weight:600;margin-top:7px}
+
+  .stage{max-width:560px;margin:0 auto;padding:26px 20px 150px}
+  .step{display:none;animation:fade .32s ease}
+  .step.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .eyebrow{font-size:0.8rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:var(--honey-deep);margin-bottom:12px}
+  h1{font-size:1.95rem;margin-bottom:10px}
+  h2{font-size:1.6rem;margin-bottom:8px}
+  .lead{color:var(--muted);font-size:1.05rem;margin-bottom:24px;max-width:40ch}
+
+  /* welcome reassurance */
+  .promise{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px}
+  .promise .pic{font-size:1.4rem;line-height:1}
+  .promise b{display:block;font-size:1.02rem;margin-bottom:1px}
+  .promise span{color:var(--muted);font-size:0.95rem}
+
+  /* big option cards (areas) */
+  .cards{display:flex;flex-direction:column;gap:14px}
+  .card{position:relative;background:#fff;border:2px solid var(--line);border-radius:18px;padding:20px 20px 20px 20px;text-align:left;font-family:inherit;cursor:pointer;transition:border-color .15s,background .15s;display:flex;gap:16px;align-items:flex-start;width:100%}
+  .card:hover{border-color:var(--honey)}
+  .card.on{border-color:var(--honey);background:linear-gradient(180deg,rgba(200,153,58,0.08),#fff)}
+  .card .cic{font-size:1.9rem;line-height:1;flex-shrink:0;margin-top:2px}
+  .card .cbody{flex:1;min-width:0}
+  .card h2{font-size:1.3rem;margin-bottom:3px;color:var(--pine)}
+  .card p{color:var(--muted);font-size:0.97rem}
+  .card .tick{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;transition:all .15s;flex-shrink:0}
+  .card.on .tick{background:var(--honey);border-color:var(--honey)}
+  .card .flag{position:absolute;top:-11px;left:18px;background:var(--pine);color:var(--honey-soft);font-size:0.68rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:4px 11px;border-radius:100px}
+
+  /* fields */
+  .field{margin-bottom:20px}
+  label.fl{display:block;font-weight:600;font-size:1.02rem;margin-bottom:9px}
+  label.fl .opt{color:var(--muted);font-weight:400;font-size:0.92rem}
+  input[type=text],input[type=email],input[type=password],textarea,select{width:100%;padding:15px 16px;border:1.5px solid var(--line);border-radius:13px;font-family:inherit;font-size:1.05rem;background:#fff;color:var(--ink)}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  textarea{resize:vertical}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235C6B60' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 18px center}
+
+  /* chips / pills */
+  .chips{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{background:#fff;border:1.5px solid var(--line);color:var(--ink);padding:11px 16px;border-radius:100px;font-family:inherit;font-size:1rem;font-weight:500;cursor:pointer;transition:all .14s;min-height:46px}
+  .chip:hover{border-color:var(--honey)}
+  .chip.on{background:var(--pine);border-color:var(--pine);color:var(--ivory);font-weight:600}
+  .day{width:46px;height:46px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%}
+
+  /* photo */
+  .photo{border:2px dashed var(--line);border-radius:16px;padding:26px;text-align:center;cursor:pointer;transition:border-color .15s;background:#fff}
+  .photo:hover{border-color:var(--honey)}
+  .photo .pi{font-size:1.8rem}
+  .photo b{display:block;margin-top:6px}
+  .photo span{color:var(--muted);font-size:0.92rem}
+
+  /* reference block */
+  .ref{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+  .ref .rt{font-weight:600;color:var(--pine);margin-bottom:12px;font-size:1.05rem}
+  .ref input{margin-bottom:10px}
+  .ref .chips{margin-bottom:10px}
+  .ref .chip{padding:8px 13px;min-height:40px;font-size:0.92rem}
+
+  /* verify */
+  .secure{background:rgba(30,58,46,0.05);border:1px solid rgba(30,58,46,0.14);border-radius:16px;padding:18px 20px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start}
+  .secure .si{font-size:1.5rem;line-height:1}
+  .secure b{display:block;margin-bottom:3px}
+  .secure p{color:var(--muted);font-size:0.96rem}
+  .consent{display:flex;gap:13px;align-items:flex-start;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
+  .consent:hover{border-color:var(--honey)}
+  .consent.on{border-color:var(--honey);background:linear-gradient(180deg,rgba(200,153,58,0.06),#fff)}
+  .consent .box{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.9rem;flex-shrink:0;transition:all .15s}
+  .consent.on .box{background:var(--honey);border-color:var(--honey)}
+  .consent b{font-size:1rem}
+  .consent span{color:var(--muted);font-size:0.92rem;display:block}
+  .linksent{display:none;background:rgba(30,58,46,0.06);border-radius:12px;padding:13px 16px;color:var(--pine);font-weight:600;margin-top:6px}
+  .linksent.on{display:block}
+
+  /* done */
+  .done-ic{width:76px;height:76px;border-radius:50%;background:var(--pine);color:var(--honey-soft);display:flex;align-items:center;justify-content:center;font-size:2.1rem;margin-bottom:20px}
+  .timeline{list-style:none;margin:22px 0 0}
+  .timeline li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--ivory-dim)}
+  .timeline li:first-child{border-top:none}
+  .timeline .tn{width:28px;height:28px;border-radius:50%;background:var(--ivory-dim);color:var(--pine);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;font-family:'Fraunces',serif}
+  .timeline b{display:block}
+  .timeline span{color:var(--muted);font-size:0.95rem}
+
+  /* nav bar */
+  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,0.96);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+  .nav-in{max-width:560px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center}
+  .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;padding:14px 6px}
+  .back:hover{color:var(--pine)}
+  .back.hide{visibility:hidden}
+  .next{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:16px;border-radius:100px;font-family:inherit;font-weight:700;font-size:1.08rem;cursor:pointer;transition:background .15s;min-height:54px}
+  .next:hover{background:var(--honey-soft)}
+  .next:disabled{opacity:0.45;cursor:default}
+  .skip{background:none;border:none;color:var(--muted);font-family:inherit;font-size:0.95rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:14px 6px}
+  .skip:hover{color:var(--pine)}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-in">
+    <div class="brand"><span class="dot"></span>Marmee</div>
+    <button class="later" id="laterBtn" onclick="alert('No worries — your progress would be saved and we\u2019d text you a link to pick up where you left off.')">Save &amp; finish later</button>
+  </div>
+  <div class="prog">
+    <div class="prog-track"><div class="prog-fill" id="fill"></div></div>
+    <div class="prog-lbl" id="plbl">Step 1 of 5</div>
+  </div>
+</div>
+
+<div class="stage">
+
+  <!-- 0 WELCOME -->
+  <div class="step on" data-nav="hidden">
+    <div class="eyebrow">Welcome</div>
+    <h1>Let's set up your Marmee profile.</h1>
+    <p class="lead">About three minutes, mostly tapping. There's barely any typing, and we'll never ask you to enter anything sensitive on this page.</p>
+    <div class="promise"><span class="pic">💚</span><div><b>Only the work you enjoy</b><span>You choose what you're matched for — nothing else.</span></div></div>
+    <div class="promise"><span class="pic">🕊️</span><div><b>Your own hours</b><span>You set the days and times that suit you.</span></div></div>
+    <div class="promise"><span class="pic">🔒</span><div><b>Nothing scary to type</b><span>The background check is done through a private, secure link — you'll see.</span></div></div>
+  </div>
+
+  <!-- 1 AREAS -->
+  <div class="step">
+    <div class="eyebrow">Step 1 · The work you love</div>
+    <h1>Which of these do you enjoy?</h1>
+    <p class="lead">Pick as many as you like. You'll only ever be matched for the areas you choose here.</p>
+    <div class="cards" id="areas">
+      <button class="card" data-v="Home" onclick="tog(this)"><span class="tick">✓</span><span class="cic">🏡</span><span class="cbody"><h2>Home</h2><p>Cleaning, laundry, tidying, dishes, plants &amp; yard.</p></span></button>
+      <button class="card" data-v="Food" onclick="tog(this)"><span class="tick">✓</span><span class="cic">🍳</span><span class="cbody"><h2>Food</h2><p>Meal prep, cooking, packing lunches, groceries.</p></span></button>
+      <button class="card" data-v="Errands" onclick="tog(this)"><span class="tick">✓</span><span class="cic">🚗</span><span class="cbody"><h2>Errands</h2><p>Pharmacy, returns, pickups, the out-and-about running.</p></span></button>
+      <button class="card" data-v="Keeping track" onclick="tog(this)"><span class="flag">Our specialty</span><span class="tick">✓</span><span class="cic">🗓️</span><span class="cbody"><h2>Keeping track</h2><p>Appointments, the calendar, coordinating sitters &amp; vendors.</p></span></button>
+    </div>
+  </div>
+
+  <!-- 2 ABOUT -->
+  <div class="step">
+    <div class="eyebrow">Step 2 · A little about you</div>
+    <h1>Nice to meet you.</h1>
+    <div class="field">
+      <label class="fl">Your name</label>
+      <input type="text" id="nm" placeholder="First name & last initial" oninput="nameChg()">
+    </div>
+    <div class="field">
+      <label class="fl">Your neighborhood</label>
+      <select>
+        <option value="">Choose your area</option>
+        <option>Munjoy Hill</option><option>West End</option><option>East End</option>
+        <option>Deering</option><option>East Bayside</option><option>Bayside</option>
+        <option>North Deering</option><option>Rosemont</option><option>South Portland</option>
+        <option>Cape Elizabeth</option><option>Falmouth</option><option>Scarborough</option>
+        <option>Westbrook</option><option>Other nearby</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="fl">Where you are now</label>
+      <div class="chips" data-single>
+        <button class="chip" onclick="one(this)">Raising kids now</button>
+        <button class="chip" onclick="one(this)">Kids are grown</button>
+        <button class="chip" onclick="one(this)">Grandkids in the picture</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fl">A photo <span class="opt">— optional, add anytime</span></label>
+      <div class="photo" onclick="alert('This would open your camera or photo library.')">
+        <div class="pi">📷</div><b>Add a friendly photo</b><span>Families love a warm face — but no rush.</span>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="fl">A sentence about you <span class="opt">— optional</span></label>
+      <textarea rows="2" placeholder="What makes a house feel like home to you?"></textarea>
+    </div>
+  </div>
+
+  <!-- 3 HOW YOU WORK -->
+  <div class="step">
+    <div class="eyebrow">Step 3 · How you'd like to work</div>
+    <h1>Your schedule, your way.</h1>
+    <div class="field">
+      <label class="fl">Days you'd like to work</label>
+      <div class="chips">
+        <button class="chip day" onclick="tog(this)">M</button><button class="chip day" onclick="tog(this)">T</button>
+        <button class="chip day" onclick="tog(this)">W</button><button class="chip day" onclick="tog(this)">T</button>
+        <button class="chip day" onclick="tog(this)">F</button><button class="chip day" onclick="tog(this)">S</button>
+        <button class="chip day" onclick="tog(this)">S</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fl">Times that suit you</label>
+      <div class="chips">
+        <button class="chip" onclick="tog(this)">Mornings</button>
+        <button class="chip" onclick="tog(this)">Afternoons</button>
+        <button class="chip" onclick="tog(this)">Evenings</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fl">How far will you travel?</label>
+      <div class="chips" data-single>
+        <button class="chip" onclick="one(this)">My neighborhood only</button>
+        <button class="chip" onclick="one(this)">Up to 15 minutes</button>
+        <button class="chip" onclick="one(this)">Up to 30 minutes</button>
+        <button class="chip" onclick="one(this)">Up to 45 minutes</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fl">Do you drive?</label>
+      <div class="chips" data-single>
+        <button class="chip" onclick="one(this)">Yes, I have a car</button>
+        <button class="chip" onclick="one(this)">No</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="fl">Supplies &amp; equipment</label>
+      <div class="chips" data-single>
+        <button class="chip" onclick="one(this)">I bring my own</button>
+        <button class="chip" onclick="one(this)">I'll use the family's</button>
+        <button class="chip" onclick="one(this)">Either is fine</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 REFERENCES -->
+  <div class="step">
+    <div class="eyebrow">Step 4 · A word from others</div>
+    <h1>Two people who'd vouch for you.</h1>
+    <p class="lead">We'll reach out quietly. A neighbor, a family you've helped, a friend — anyone who knows you well.</p>
+    <div class="ref">
+      <div class="rt">Reference one</div>
+      <input type="text" placeholder="Their name">
+      <div class="chips"><button class="chip" onclick="one(this)">Neighbor</button><button class="chip" onclick="one(this)">Family I helped</button><button class="chip" onclick="one(this)">Friend</button><button class="chip" onclick="one(this)">Employer</button></div>
+      <input type="text" placeholder="Phone or email">
+    </div>
+    <div class="ref">
+      <div class="rt">Reference two</div>
+      <input type="text" placeholder="Their name">
+      <div class="chips"><button class="chip" onclick="one(this)">Neighbor</button><button class="chip" onclick="one(this)">Family I helped</button><button class="chip" onclick="one(this)">Friend</button><button class="chip" onclick="one(this)">Employer</button></div>
+      <input type="text" placeholder="Phone or email">
+    </div>
+  </div>
+
+  <!-- 5 VERIFY -->
+  <div class="step">
+    <div class="eyebrow">Step 5 · Last thing</div>
+    <h1>A quick background check.</h1>
+    <p class="lead">Every Marmee is checked — it's what lets families trust us. Here's the part we promised would be painless.</p>
+    <div class="field">
+      <label class="fl">Create your login &mdash; email</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label class="fl">Choose a password</label>
+      <input type="password" id="pass" placeholder="At least 6 characters" autocomplete="new-password">
+    </div>
+    <div id="finishMsg" style="display:none;color:var(--clay);font-weight:600;font-size:0.95rem;margin:4px 0 16px"></div>
+    <div class="secure">
+      <span class="si">🔒</span>
+      <div><b>We'll text you a private, secure link.</b>
+        <p>You'll complete the check directly with Checkr, our trusted partner. <b>Marmee never sees or stores your Social Security number</b> — you won't type it here.</p></div>
+    </div>
+    <div class="field">
+      <label class="fl">Your mobile number</label>
+      <input type="text" id="ph" placeholder="(207) 555-0148">
+    </div>
+    <button class="chip" style="width:100%;background:var(--pine);color:var(--ivory);border-color:var(--pine);font-weight:700;margin-bottom:8px" onclick="sendLink()">Text me the secure link</button>
+    <div class="linksent" id="sent">✓ Sent! Check your phone when you have a moment — you can finish the check anytime in the next few days.</div>
+    <div style="margin-top:22px">
+      <div class="consent" onclick="this.classList.toggle('on')"><div class="box">✓</div><div><b>I agree to a background check</b><span>Through Checkr, to verify identity and history.</span></div></div>
+      <div class="consent" onclick="this.classList.toggle('on')"><div class="box">✓</div><div><b>I'll bring the Marmee spirit</b><span>Reliability, warmth, and honesty in every home.</span></div></div>
+    </div>
+  </div>
+
+  <!-- 6 DONE -->
+  <div class="step" data-nav="hidden">
+    <div class="done-ic">✓</div>
+    <h1 id="donehead">You're all set!</h1>
+    <p class="lead">That's everything we need from you for now. Here's what happens next:</p>
+    <ul class="timeline">
+      <li><span class="tn">1</span><div><b>We check your references</b><span>A quiet call or two over the next few days.</span></div></li>
+      <li><span class="tn">2</span><div><b>Your background check clears</b><span>You complete it on the secure link we texted.</span></div></li>
+      <li><span class="tn">3</span><div><b>A warm welcome call</b><span>We say hello and answer any questions.</span></div></li>
+      <li><span class="tn">4</span><div><b>Your profile goes live</b><span>And we start finding families near you.</span></div></li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="nav" id="navbar">
+  <div class="nav-in">
+    <button class="back" id="backBtn" onclick="back()">← Back</button>
+    <button class="next" id="nextBtn" onclick="next()">Get started</button>
+    <button class="skip" id="skipBtn" onclick="next()" style="display:none">Skip</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  console.log("Marmee apply — build 3");
+  const SUPABASE_URL = 'https://dlargnwijzrlruaxzsgj.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
+  let db = (window.supabase && window.supabase.createClient)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+  const steps = [...document.querySelectorAll('.step')];
+  let i = 0;
+  const REAL = 5;
+
+  const val = s => (document.querySelector(s)?.value || '').trim();
+  const txt = el => el ? el.textContent.trim() : '';
+
+  function show(){
+    steps.forEach((s,x)=>s.classList.toggle('on', x===i));
+    const nav = document.getElementById('navbar');
+    const back = document.getElementById('backBtn');
+    const next = document.getElementById('nextBtn');
+    const skip = document.getElementById('skipBtn');
+    const fill = document.getElementById('fill');
+    const plbl = document.getElementById('plbl');
+
+    let pct;
+    if(i===0){pct=0; plbl.textContent='A few quick steps';}
+    else if(i>=steps.length-1){pct=100; plbl.textContent='Done';}
+    else {pct = Math.round((i/REAL)*100); plbl.textContent='Step '+i+' of '+REAL;}
+    fill.style.width = pct+'%';
+
+    nav.style.display = (i===steps.length-1) ? 'none' : 'flex';   // hide nav on the final screen
+    var _later=document.getElementById('laterBtn'); if(_later) _later.style.display=(i===steps.length-1)?'none':'inline';
+    back.classList.toggle('hide', i<=0);
+
+    if(i===0) next.textContent='Get started';
+    else if(i===steps.length-2) next.textContent='Create my account';
+    else next.textContent='Continue';
+
+    const skippable = [2,4];
+    skip.style.display = skippable.includes(i) ? 'block' : 'none';
+    window.scrollTo?.(0,0);
+  }
+
+  function next(){
+    if(i === steps.length-2){ finish(); return; }   // the account step
+    if(i >= steps.length-1){ return; }
+    i++; show();
+  }
+  function back(){ if(i>0){i--; show();} }
+
+  function tog(el){ el.classList.toggle('on'); }
+  function one(el){
+    const group = el.closest('.chips') || el.parentElement;
+    if(el.classList.contains('on')){ el.classList.remove('on'); return; }
+    [...group.querySelectorAll('.chip, .card')].forEach(c=>c.classList.remove('on'));
+    el.classList.add('on');
+  }
+  function nameChg(){
+    const v = val('#nm');
+    document.getElementById('donehead').textContent = v ? `You're all set, ${v.split(' ')[0]}!` : "You're all set!";
+  }
+  function sendLink(){ document.getElementById('sent').classList.add('on'); }
+
+  function msg(t){ const e=document.getElementById('finishMsg'); e.textContent=t; e.style.display=t?'block':'none'; }
+
+  function safe(fn, dflt){ try{ return fn(); }catch(e){ return dflt; } }
+
+  function collect(){
+    const S = steps;
+    const areas = safe(()=>[...S[1].querySelectorAll('.card.on')].map(c=>c.dataset.v), []);
+    const nm = val('#nm'); const parts = nm.split(/\s+/).filter(Boolean);
+    const first_name = parts[0]||''; const last_initial = parts.slice(1).join(' ')||null;
+    const neighborhood = safe(()=>document.querySelector('select')?.value, null) || null;
+    const experience = safe(()=>txt(S[2].querySelector('.chips[data-single] .chip.on')), '') || null;
+    const bio = safe(()=>(document.querySelector('textarea')?.value||'').trim(), '') || null;
+    const wc = safe(()=>S[3].querySelectorAll('.chips'), []);
+    const DAYMAP=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const days = safe(()=>[...wc[0].querySelectorAll('.chip')].map((c,idx)=>c.classList.contains('on')?DAYMAP[idx]:null).filter(Boolean), []);
+    const times = safe(()=>[...wc[1].querySelectorAll('.chip.on')].map(c=>c.textContent.trim()), []);
+    const travel = safe(()=>txt(wc[2].querySelector('.chip.on')), '') || null;
+    const driveTxt = safe(()=>txt(wc[3].querySelector('.chip.on')), '');
+    const drives = driveTxt ? driveTxt.startsWith('Yes') : null;
+    const supplies = safe(()=>txt(wc[4].querySelector('.chip.on')), '') || null;
+    const references = safe(()=>[...S[4].querySelectorAll('.ref')].map(rf=>{
+      const ins = rf.querySelectorAll('input');
+      return { name:(ins[0]?.value||'').trim(), relationship:txt(rf.querySelector('.chip.on')), contact:(ins[1]?.value||'').trim() };
+    }), []);
+    const phone = val('#ph') || null;
+    return { areas, first_name, last_initial, neighborhood, experience, bio, days, times, travel, drives, supplies, references, phone };
+  }
+
+  async function finish(){
+    const btn = document.getElementById('nextBtn');
+    btn.textContent = 'Creating your account\u2026'; btn.disabled = true; msg('');
+    const reset = (m)=>{ if(m) msg(m); btn.textContent='Create my account'; btn.disabled=false; };
+    try{
+      if(!db){ reset('Could not reach the server. Check your internet and try again.'); return; }
+      const email = (document.querySelector('#email')?.value||'').trim();
+      const pass  = document.querySelector('#pass')?.value || '';
+      if(!email || !pass){ reset('Enter an email and password to create your login.'); return; }
+      if(pass.length < 6){ reset('Please choose a password with at least 6 characters.'); return; }
+      const d = collect();
+      if(!d.first_name){ reset('Please add your name on the "about you" step first.'); return; }
+
+      const meta = {
+        role: 'mom',
+        first_name: d.first_name, last_initial: d.last_initial, neighborhood: d.neighborhood,
+        experience: d.experience, bio: d.bio, areas: d.areas, days: d.days, times: d.times,
+        travel: d.travel, drives: (d.drives===null ? null : String(d.drives)),
+        supplies: d.supplies, phone: d.phone, references: d.references
+      };
+      const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('The server took too long to respond. Check your connection and try again.')), 15000));
+      const { data: su, error } = await Promise.race([ db.auth.signUp({ email, password: pass, options: { data: meta } }), timeout ]);
+      if(error){
+        let m = error.message || 'Sign-up failed.';
+        if(/already/i.test(m)) m = 'That email is already registered. Try signing in instead, or use a different email.';
+        reset(m); return;
+      }
+      nameChg();
+      i = steps.length-1; show();
+    }catch(e){
+      reset('Something went wrong: ' + (e && e.message ? e.message : 'unknown error') + '. Please try again.');
+    }
+  }
+
+  show();
+</script>
+<div style="position:fixed;bottom:6px;right:9px;font-size:10px;color:#8a6a1f;opacity:.55;z-index:9999;font-family:monospace">Marmee build 3</div>
+</body>
+</html>
