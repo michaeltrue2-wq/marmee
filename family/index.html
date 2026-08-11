@@ -103,6 +103,17 @@
   .bookform label{display:block;font-weight:600;font-size:.9rem;margin:0 0 6px;color:var(--pine)}
   .bookform input{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:11px;font-family:inherit;font-size:1rem;background:#fff;margin-bottom:12px}
   .bookform .bookgo{background:var(--pine);color:var(--ivory);border:none;border-radius:100px;padding:12px;width:100%;font-family:inherit;font-weight:700;cursor:pointer}
+  .section-t2{font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--honey-deep);font-weight:700;margin:26px 0 12px}
+  .stars{display:flex;gap:3px;margin:6px 0 10px}
+  .star{background:none;border:none;font-size:1.7rem;line-height:1;color:var(--line);cursor:pointer;padding:0}
+  .star.on{color:var(--honey)}
+  .stars-ro{color:var(--honey);font-size:1.15rem;letter-spacing:2px}
+  .reviewbox{margin-top:12px;border-top:1px solid var(--ivory-dim);padding-top:11px}
+  .rvt{font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .rev-input{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:.92rem;background:#fff;margin-bottom:9px}
+  .rev-submit{background:var(--pine);color:var(--ivory);border:none;border-radius:100px;padding:9px 18px;font-family:inherit;font-weight:700;font-size:.85rem;cursor:pointer}
+  .reviewed{margin-top:11px;border-top:1px solid var(--ivory-dim);padding-top:10px}
+  .rev-c{color:var(--muted);font-size:.92rem;font-style:italic;margin-top:3px}
 </style>
 </head>
 <body>
@@ -135,10 +146,10 @@
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
 </div></div>
 
-<div class="buildtag">Marmee family · build 3</div>
+<div class="buildtag">Marmee family · build 4</div>
 
 <script>
-  console.log("Marmee family-index — build 3");
+  console.log("Marmee family-index — build 4");
   const SUPABASE_URL='https://dlargnwijzrlruaxzsgj.supabase.co';
   const SUPABASE_KEY='sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
   let db=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
@@ -148,7 +159,7 @@
   function fmtDay(d){ if(!d) return 'To be scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
   function gerr(m){ const e=$('#gateErr'); e.textContent=m; e.style.display=m?'block':'none'; }
   function stub(m){ alert(m.replace(/^This would /,'').replace(/\.$/,'')); }
-  let me=null, myReqs=[], myVisits=[], momById={}, visitTasks={};
+  let me=null, myReqs=[], myVisits=[], momById={}, visitTasks={}, myReviews={};
 
   async function login(){
     if(!db){ gerr('Could not reach the server. Refresh and try again.'); return; }
@@ -176,7 +187,7 @@
     myReqs=rq||[]; myVisits=vs||[];
     const momIds=[...new Set(myVisits.map(v=>v.mom_id).filter(Boolean))];
     if(momIds.length){ const {data:m}=await db.from('moms').select('*').in('id', momIds); (m||[]).forEach(x=>momById[x.id]=x); }
-    await loadTasks();
+    await loadTasks(); await loadReviews();
     $('#gate').classList.add('hidden'); $('#app').classList.add('on');
     render();
   }
@@ -240,6 +251,26 @@
     } else {
       html += `<div class="card req">No visits scheduled yet${mom?' — book your first one above.':'. They\'ll appear here once you\'re matched.'}</div>`;
     }
+
+    const past = myVisits.filter(v=>v.status==='completed').sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
+    if(past.length){
+      html += `<div class="section-t2">Past visits</div>`;
+      past.forEach(v=>{
+        const m=momById[v.mom_id]; const rev=myReviews[v.id];
+        html += `<div class="card">
+          <div class="visit"><div class="vt">${v.visit_time||'—'}</div>
+            <div style="flex:1"><b>${fmtDay(v.visit_date)}</b><div class="vm">${m?((m.first_name||'')+' '+(m.last_initial||'')):''}</div></div>
+            <span class="pill good">Done</span></div>
+          ${rev ? `<div class="reviewed"><div class="stars-ro">${'★'.repeat(rev.rating)}${'☆'.repeat(5-rev.rating)}</div>${rev.comment?('<div class="rev-c">“'+escapeH(rev.comment)+'”</div>'):''}</div>`
+                : `<div class="reviewbox"><div class="rvt">How was your visit${m?(' with '+m.first_name):''}?</div>
+                     <div class="stars" id="stars-${v.id}" data-rating="0">${[1,2,3,4,5].map(n=>`<button class="star" onclick="setStar('${v.id}',${n})">★</button>`).join('')}</div>
+                     <input class="rev-input" id="rev-${v.id}" placeholder="Add a note (optional)">
+                     <button class="rev-submit" onclick="submitReview('${v.id}')">Submit review</button>
+                   </div>`}
+        </div>`;
+      });
+    }
+
     $('#body').innerHTML = html;
 
     const req=myReqs[0];
@@ -267,7 +298,7 @@
     try{ const {data:vs}=await db.from('visits').select('*').eq('family_id',me.id); myVisits=vs||[];
       const ids=[...new Set(myVisits.map(v=>v.mom_id).filter(Boolean))];
       if(ids.length){ const {data:m}=await db.from('moms').select('*').in('id',ids); (m||[]).forEach(x=>momById[x.id]=x); }
-      await loadTasks(); render(); }catch(e){}
+      await loadTasks(); await loadReviews(); render(); }catch(e){}
   }
   function toggleBookForm(){ const f=document.getElementById('bookForm'); f.style.display=f.style.display==='none'?'block':'none'; }
   async function doBook(){
@@ -297,6 +328,24 @@
   }
   async function toggleTask(taskId,done){
     try{ await db.from('visit_tasks').update({done}).eq('id',taskId); await reloadVisits(); }catch(e){}
+  }
+  async function loadReviews(){
+    myReviews={}; const ids=myVisits.map(v=>v.id); if(!ids.length) return;
+    try{ const {data}=await db.from('reviews').select('*').in('visit_id',ids);
+      (data||[]).forEach(r=>{ if(r.reviewer_role==='family') myReviews[r.visit_id]=r; }); }catch(e){}
+  }
+  function setStar(vid,n){
+    const box=document.getElementById('stars-'+vid); box.dataset.rating=n;
+    [...box.querySelectorAll('.star')].forEach((s,i)=> s.classList.toggle('on', i<n));
+  }
+  async function submitReview(vid){
+    const box=document.getElementById('stars-'+vid); const rating=parseInt(box.dataset.rating||'0');
+    if(!rating){ alert('Tap a star rating first.'); return; }
+    const comment=(document.getElementById('rev-'+vid).value||'').trim();
+    const v=myVisits.find(x=>x.id===vid); if(!v) return;
+    try{ const {error}=await db.from('reviews').insert({visit_id:vid,family_id:me.id,mom_id:v.mom_id,reviewer_role:'family',rating,comment});
+      if(error){ alert(error.message); return; } await reloadVisits(); }
+    catch(e){ alert('Could not submit review.'); }
   }
 
   (async function(){

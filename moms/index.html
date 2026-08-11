@@ -192,6 +192,15 @@
   .task{display:flex;align-items:center;gap:9px;padding:3px 0;font-size:.95rem}
   .task input[type=checkbox]{width:18px;height:18px;accent-color:var(--pine)}
   .task.done label{text-decoration:line-through;color:var(--muted)}
+  .stars{display:flex;gap:3px;margin:6px 0 10px}
+  .star{background:none;border:none;font-size:1.6rem;line-height:1;color:var(--line);cursor:pointer;padding:0}
+  .star.on{color:var(--honey)}
+  .stars-ro{color:var(--honey);font-size:1.1rem;letter-spacing:2px}
+  .reviewbox{margin-top:11px;border-top:1px solid var(--ivory-dim);padding-top:10px}
+  .rvt{font-size:.76rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .rev-input{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:.9rem;background:#fff;margin-bottom:9px}
+  .rev-submit{background:var(--pine);color:var(--ivory);border:none;border-radius:100px;padding:9px 18px;font-family:inherit;font-weight:700;font-size:.82rem;cursor:pointer}
+  .reviewed{margin-top:10px;border-top:1px solid var(--ivory-dim);padding-top:9px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -261,7 +270,7 @@
   const initials = t => { const p=(t||'').replace(/^The /,'').trim().split(' '); return ((p[0]||'')[0]||'')+((p[1]||'')[0]||''); };
   function fmtDay(d){ if(!d) return 'Scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 
-  let me = null, myVisits = [], famById = {}, visitTasks = {};
+  let me = null, myVisits = [], famById = {}, visitTasks = {}, myReviews = {};
   let toastTimer;
   function toast(m){ $('#toastMsg').textContent=m; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),2600); }
   function stub(m){ toast(m.replace(/^This would /,'').replace(/\.$/,'')); }
@@ -300,7 +309,7 @@
       const { data: fam } = await db.from('families').select('*').in('id', famIds);
       (fam||[]).forEach(f=> famById[f.id]=f);
     }
-    await loadTasks();
+    await loadTasks(); await loadReviews();
     $('#app').style.display='block';
     renderAll();
   }
@@ -413,7 +422,15 @@
             <button class="actbtn" onclick="openChat('${v.family_id}')">💬 Message</button>
             ${cl?`<a class="actbtn" href="${cl}" target="_blank">📅 Add to calendar</a>`:''}
             ${open?`<button class="actbtn" onclick="doResched('${v.id}')">Reschedule</button><button class="actbtn warn" onclick="doCancel('${v.id}')">Cancel</button>`:''}
-          </div></div>`;
+          </div>
+          ${v.status==='completed' ? (myReviews[v.id]
+            ? `<div class="reviewed"><span class="stars-ro">${'★'.repeat(myReviews[v.id].rating)}${'☆'.repeat(5-myReviews[v.id].rating)}</span> <span style="color:var(--muted);font-size:.85rem">you rated this family</span></div>`
+            : `<div class="reviewbox"><div class="rvt">Rate this family</div>
+                 <div class="stars" id="stars-${v.id}" data-rating="0">${[1,2,3,4,5].map(n=>`<button class="star" onclick="setStar('${v.id}',${n})">★</button>`).join('')}</div>
+                 <input class="rev-input" id="rev-${v.id}" placeholder="Add a note (optional)">
+                 <button class="rev-submit" onclick="submitReview('${v.id}')">Submit</button>
+               </div>`) : ''}
+          </div>`;
       });
       html+=`</div>`;
     });
@@ -437,7 +454,7 @@
       (data||[]).forEach(t=>{ (visitTasks[t.visit_id]=visitTasks[t.visit_id]||[]).push(t); }); }catch(e){}
   }
   async function reloadVisits(){
-    try{ const {data:v}=await db.from('visits').select('*').eq('mom_id',me.id); myVisits=v||[]; await loadTasks(); renderAll(); }catch(e){}
+    try{ const {data:v}=await db.from('visits').select('*').eq('mom_id',me.id); myVisits=v||[]; await loadTasks(); await loadReviews(); renderAll(); }catch(e){}
   }
   async function toggleTask(id,done){ try{ await db.from('visit_tasks').update({done}).eq('id',id); await reloadVisits(); }catch(e){} }
   async function doCancel(id){
@@ -447,6 +464,23 @@
   async function doResched(id){
     const date=prompt('New date (YYYY-MM-DD):'); if(!date) return; const time=prompt('New time (e.g. 9:00 AM):'); if(!time) return;
     try{ const {error}=await db.rpc('reschedule_visit',{p_visit:id,p_date:date,p_time:time}); if(error){alert(error.message);return;} await reloadVisits(); }catch(e){ alert('Could not reschedule.'); }
+  }
+  async function loadReviews(){
+    myReviews={}; const ids=myVisits.map(v=>v.id); if(!ids.length) return;
+    try{ const {data}=await db.from('reviews').select('*').in('visit_id',ids);
+      (data||[]).forEach(r=>{ if(r.reviewer_role==='mom') myReviews[r.visit_id]=r; }); }catch(e){}
+  }
+  function setStar(vid,n){
+    const box=document.getElementById('stars-'+vid); box.dataset.rating=n;
+    [...box.querySelectorAll('.star')].forEach((s,i)=> s.classList.toggle('on', i<n));
+  }
+  async function submitReview(vid){
+    const box=document.getElementById('stars-'+vid); const rating=parseInt(box.dataset.rating||'0');
+    if(!rating){ alert('Tap a star rating first.'); return; }
+    const comment=(document.getElementById('rev-'+vid).value||'').trim();
+    const v=myVisits.find(x=>x.id===vid); if(!v) return;
+    try{ const {error}=await db.from('reviews').insert({visit_id:vid,family_id:v.family_id,mom_id:me.id,reviewer_role:'mom',rating,comment});
+      if(error){ alert(error.message); return; } await reloadVisits(); }catch(e){ alert('Could not submit.'); }
   }
 
   function renderEarnings(){
