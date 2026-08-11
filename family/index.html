@@ -85,6 +85,24 @@
   .chat-foot input{flex:1;padding:13px 15px;border:1.5px solid var(--line);border-radius:100px;font-family:inherit;font-size:1rem;background:var(--ivory);color:var(--ink)}
   .chat-foot input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
   .chat-foot button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 22px;font-family:inherit;font-weight:700;cursor:pointer}
+  .actbtn{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:6px 12px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+  .actbtn:hover{border-color:var(--honey)}
+  .actbtn.warn{color:var(--clay)}
+  .vacts{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .checklist{margin-top:12px;border-top:1px solid var(--ivory-dim);padding-top:11px}
+  .checklist .ct{font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .task{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:.95rem}
+  .task input[type=checkbox]{width:18px;height:18px;accent-color:var(--pine)}
+  .task.done label{text-decoration:line-through;color:var(--muted)}
+  .task-add{display:flex;gap:7px;margin-top:8px}
+  .task-add input{flex:1;padding:8px 11px;border:1.5px solid var(--line);border-radius:9px;font-family:inherit;font-size:.9rem;background:#fff}
+  .task-add button{background:var(--pine);color:var(--ivory);border:none;border-radius:9px;padding:0 14px;font-family:inherit;font-weight:600;font-size:.85rem;cursor:pointer}
+  .bookbtn{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:12px 22px;font-family:inherit;font-weight:700;cursor:pointer;margin-bottom:14px}
+  .bookbtn:hover{background:var(--honey-soft)}
+  .bookform{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+  .bookform label{display:block;font-weight:600;font-size:.9rem;margin:0 0 6px;color:var(--pine)}
+  .bookform input{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:11px;font-family:inherit;font-size:1rem;background:#fff;margin-bottom:12px}
+  .bookform .bookgo{background:var(--pine);color:var(--ivory);border:none;border-radius:100px;padding:12px;width:100%;font-family:inherit;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
@@ -113,14 +131,14 @@
   <div id="body"></div>
   <div class="section-t">Your account</div>
   <div class="prow" onclick="stub('This would let you edit your request.')"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
-  <div class="prow" onclick="openChat()"><span class="pic">💬</span><div class="pl"><b>Messages</b><span>Chat with your Marmee</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openMessages()"><span class="pic">💬</span><div class="pl"><b>Messages</b><span>Chat with your Marmee</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
 </div></div>
 
-<div class="buildtag">Marmee family · build 2</div>
+<div class="buildtag">Marmee family · build 3</div>
 
 <script>
-  console.log("Marmee family-index — build 2");
+  console.log("Marmee family-index — build 3");
   const SUPABASE_URL='https://dlargnwijzrlruaxzsgj.supabase.co';
   const SUPABASE_KEY='sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
   let db=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
@@ -130,7 +148,7 @@
   function fmtDay(d){ if(!d) return 'To be scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
   function gerr(m){ const e=$('#gateErr'); e.textContent=m; e.style.display=m?'block':'none'; }
   function stub(m){ alert(m.replace(/^This would /,'').replace(/\.$/,'')); }
-  let me=null, myReqs=[], myVisits=[], momById={};
+  let me=null, myReqs=[], myVisits=[], momById={}, visitTasks={};
 
   async function login(){
     if(!db){ gerr('Could not reach the server. Refresh and try again.'); return; }
@@ -158,6 +176,7 @@
     myReqs=rq||[]; myVisits=vs||[];
     const momIds=[...new Set(myVisits.map(v=>v.mom_id).filter(Boolean))];
     if(momIds.length){ const {data:m}=await db.from('moms').select('*').in('id', momIds); (m||[]).forEach(x=>momById[x.id]=x); }
+    await loadTasks();
     $('#gate').classList.add('hidden'); $('#app').classList.add('on');
     render();
   }
@@ -187,17 +206,39 @@
     }
 
     html += `<div class="section-t">Upcoming visits</div>`;
+    if(mom){
+      html += `<button class="bookbtn" onclick="toggleBookForm()">＋ Book a visit with ${mom.first_name}</button>
+        <div class="bookform" id="bookForm" style="display:none">
+          <label>Date</label><input type="date" id="bkDate" min="${new Date().toISOString().slice(0,10)}">
+          <label>Time</label><input type="text" id="bkTime" placeholder="9:00 AM">
+          <label>Hours</label><input type="number" id="bkHours" value="3" min="1" step="0.5">
+          <button class="bookgo" onclick="doBook()">Book this visit</button>
+        </div>`;
+    }
     if(upcoming.length){
       upcoming.forEach(v=>{
         const m=momById[v.mom_id];
-        html += `<div class="card"><div class="visit"><div class="vt">${v.visit_time||'—'}</div>
-          <div style="flex:1"><b>${fmtDay(v.visit_date)}</b>
-          <div class="vm">${m?((m.first_name||'')+' '+(m.last_initial||'')+' · '):''}${v.hours?(v.hours+' hours'):''}</div>
-          <div class="chips">${arr(v.areas).map(a=>`<span class="tag">${a}</span>`).join('')}</div></div>
-          <span class="pill up">Upcoming</span></div></div>`;
+        const tasks=visitTasks[v.id]||[];
+        const cl = calLink(v);
+        html += `<div class="card">
+          <div class="visit"><div class="vt">${v.visit_time||'—'}</div>
+            <div style="flex:1"><b>${fmtDay(v.visit_date)}</b>
+            <div class="vm">${m?((m.first_name||'')+' '+(m.last_initial||'')+' · '):''}${v.hours?(v.hours+' hours'):''}</div>
+            <div class="chips">${arr(v.areas).map(a=>`<span class="tag">${a}</span>`).join('')}</div></div>
+            <span class="pill up">Upcoming</span></div>
+          <div class="checklist"><div class="ct">What you'd like done</div>
+            ${tasks.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}',this.checked)"><label>${escapeH(t.label)}</label></div>`).join('')}
+            <div class="task-add"><input id="task-${v.id}" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addTask('${v.id}')"><button onclick="addTask('${v.id}')">Add</button></div>
+          </div>
+          <div class="vacts">
+            ${cl?`<a class="actbtn" href="${cl}" target="_blank">📅 Add to calendar</a>`:''}
+            <button class="actbtn" onclick="doResched('${v.id}')">Reschedule</button>
+            <button class="actbtn warn" onclick="doCancel('${v.id}')">Cancel</button>
+          </div>
+        </div>`;
       });
     } else {
-      html += `<div class="card req">No visits scheduled yet${mom?' — you and '+mom.first_name+' can set up your first one soon.':'. They\'ll appear here once you\'re matched.'}</div>`;
+      html += `<div class="card req">No visits scheduled yet${mom?' — book your first one above.':'. They\'ll appear here once you\'re matched.'}</div>`;
     }
     $('#body').innerHTML = html;
 
@@ -205,51 +246,64 @@
     $('#reqSummary').textContent = req ? (arr(req.areas).join(', ')+(req.frequency?(' · '+req.frequency):'')) : 'No request on file';
   }
 
+  function escapeH(x){ return (x||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function calLink(v){
+    if(!v.visit_date) return null;
+    let hh=9,mm=0; const t=(v.visit_time||'').match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
+    if(t){ hh=parseInt(t[1]); mm=t[2]?parseInt(t[2]):0; const ap=(t[3]||'').toLowerCase(); if(ap==='pm'&&hh<12)hh+=12; if(ap==='am'&&hh===12)hh=0; }
+    const sdt=new Date(v.visit_date+'T00:00:00'); sdt.setHours(hh,mm,0,0);
+    const edt=new Date(sdt.getTime()+(Number(v.hours)||3)*3600000);
+    const f=x=>x.getFullYear()+pad(x.getMonth()+1)+pad(x.getDate())+'T'+pad(x.getHours())+pad(x.getMinutes())+'00';
+    const m=momById[v.mom_id]; const title='Marmee visit'+(m?(' with '+m.first_name):'');
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+f(sdt)+'/'+f(edt)+'&details='+encodeURIComponent('Booked through Marmee');
+  }
+  async function loadTasks(){
+    visitTasks={}; const ids=myVisits.map(v=>v.id); if(!ids.length) return;
+    try{ const {data}=await db.from('visit_tasks').select('*').in('visit_id',ids).order('created_at',{ascending:true});
+      (data||[]).forEach(t=>{ (visitTasks[t.visit_id]=visitTasks[t.visit_id]||[]).push(t); }); }catch(e){}
+  }
+  async function reloadVisits(){
+    try{ const {data:vs}=await db.from('visits').select('*').eq('family_id',me.id); myVisits=vs||[];
+      const ids=[...new Set(myVisits.map(v=>v.mom_id).filter(Boolean))];
+      if(ids.length){ const {data:m}=await db.from('moms').select('*').in('id',ids); (m||[]).forEach(x=>momById[x.id]=x); }
+      await loadTasks(); render(); }catch(e){}
+  }
+  function toggleBookForm(){ const f=document.getElementById('bookForm'); f.style.display=f.style.display==='none'?'block':'none'; }
+  async function doBook(){
+    const mom=Object.values(momById)[0]; if(!mom){ alert('You\'ll be matched with a Marmee first.'); return; }
+    const date=document.getElementById('bkDate').value, time=(document.getElementById('bkTime').value||'').trim(), hours=parseFloat(document.getElementById('bkHours').value)||3;
+    if(!date||!time){ alert('Pick a date and time.'); return; }
+    const req=myReqs[0]; const areas=req?arr(req.areas):[];
+    try{ const {error}=await db.rpc('book_visit',{p_mom:mom.id,p_date:date,p_time:time,p_hours:hours,p_areas:areas});
+      if(error){ alert(error.message); return; } toggleBookForm(); await reloadVisits(); }
+    catch(e){ alert('Could not book. Try again.'); }
+  }
+  async function doCancel(id){
+    if(!confirm('Cancel this visit?')) return;
+    const reason=prompt('Optional — reason for cancelling:')||'';
+    try{ const {error}=await db.rpc('cancel_visit',{p_visit:id,p_reason:reason}); if(error){alert(error.message);return;} await reloadVisits(); }
+    catch(e){ alert('Could not cancel.'); }
+  }
+  async function doResched(id){
+    const date=prompt('New date (YYYY-MM-DD):'); if(!date) return;
+    const time=prompt('New time (e.g. 9:00 AM):'); if(!time) return;
+    try{ const {error}=await db.rpc('reschedule_visit',{p_visit:id,p_date:date,p_time:time}); if(error){alert(error.message);return;} await reloadVisits(); }
+    catch(e){ alert('Could not reschedule.'); }
+  }
+  async function addTask(id){
+    const inp=document.getElementById('task-'+id); const label=(inp.value||'').trim(); if(!label) return; inp.value='';
+    try{ await db.from('visit_tasks').insert({visit_id:id,label}); await reloadVisits(); }catch(e){}
+  }
+  async function toggleTask(taskId,done){
+    try{ await db.from('visit_tasks').update({done}).eq('id',taskId); await reloadVisits(); }catch(e){}
+  }
+
   (async function(){
     if(!db){ gerr('Could not load. Refresh the page.'); return; }
     try{ const { data:{ session } }=await db.auth.getSession(); if(session){ await enter(); } }catch(e){}
   })();
-
-  function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  let chatFam=null, chatMom=null, chatPoll=null;
-  async function loadChat(){
-    if(!chatFam||!chatMom) return;
-    try{
-      const { data } = await db.from('messages').select('*').eq('family_id',chatFam).eq('mom_id',chatMom).order('created_at',{ascending:true});
-      const box=document.getElementById('chatMsgs'); const msgs=data||[];
-      box.innerHTML = msgs.length ? msgs.map(m=>'<div class="bubble '+(m.sender_role==='family'?'me':'them')+'">'+esc(m.body)+'</div>').join('') : '<div class="chat-empty">No messages yet. Say hello \ud83d\udc4b</div>';
-      box.scrollTop = box.scrollHeight;
-    }catch(e){}
-  }
-  async function sendChat(){
-    const inp=document.getElementById('chatInput'); const body=(inp.value||'').trim(); if(!body||!chatFam||!chatMom) return;
-    inp.value='';
-    try{ await db.from('messages').insert({ family_id:chatFam, mom_id:chatMom, sender_role:'family', body }); await loadChat(); }
-    catch(e){ inp.value=body; }
-  }
-  function closeChat(){ document.getElementById('chat').classList.remove('on'); if(chatPoll){clearInterval(chatPoll);chatPoll=null;} }
-
-  function openChat(){
-    const momId = Object.keys(momById)[0];
-    if(!momId){ alert("You can message your Marmee here once you're matched."); return; }
-    chatFam=me.id; chatMom=momId;
-    const mom=momById[momId];
-    document.getElementById('chatName').textContent=((mom.first_name||'')+' '+(mom.last_initial||'')).trim()||'Your Marmee';
-    document.getElementById('chat').classList.add('on');
-    loadChat(); if(chatPoll)clearInterval(chatPoll); chatPoll=setInterval(loadChat,4000);
-  }
-
 </script>
-
-<div class="chat" id="chat">
-  <div class="chat-head"><button class="chat-back" onclick="closeChat()">←</button><span id="chatName">Chat</span></div>
-  <div class="chat-msgs" id="chatMsgs"></div>
-  <div class="chat-foot">
-    <input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()">
-    <button onclick="sendChat()">Send</button>
-  </div>
-</div>
-
 
 <div class="chat" id="chat">
   <div class="chat-head"><button class="chat-back" onclick="closeChat()">←</button><span id="chatName">Chat</span></div>

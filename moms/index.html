@@ -184,6 +184,14 @@
   .chat-foot input{flex:1;padding:13px 15px;border:1.5px solid var(--line);border-radius:100px;font-family:inherit;font-size:1rem;background:var(--ivory);color:var(--ink)}
   .chat-foot input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
   .chat-foot button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 22px;font-family:inherit;font-weight:700;cursor:pointer}
+  .actbtn{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:6px 12px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+  .actbtn:hover{border-color:var(--honey)} .actbtn.warn{color:#B4552F}
+  .vacts{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+  .checklist{margin-top:11px;border-top:1px solid var(--ivory-dim);padding-top:10px}
+  .checklist .ct{font-size:.76rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .task{display:flex;align-items:center;gap:9px;padding:3px 0;font-size:.95rem}
+  .task input[type=checkbox]{width:18px;height:18px;accent-color:var(--pine)}
+  .task.done label{text-decoration:line-through;color:var(--muted)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -253,7 +261,7 @@
   const initials = t => { const p=(t||'').replace(/^The /,'').trim().split(' '); return ((p[0]||'')[0]||'')+((p[1]||'')[0]||''); };
   function fmtDay(d){ if(!d) return 'Scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 
-  let me = null, myVisits = [], famById = {};
+  let me = null, myVisits = [], famById = {}, visitTasks = {};
   let toastTimer;
   function toast(m){ $('#toastMsg').textContent=m; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),2600); }
   function stub(m){ toast(m.replace(/^This would /,'').replace(/\.$/,'')); }
@@ -292,6 +300,7 @@
       const { data: fam } = await db.from('families').select('*').in('id', famIds);
       (fam||[]).forEach(f=> famById[f.id]=f);
     }
+    await loadTasks();
     $('#app').style.display='block';
     renderAll();
   }
@@ -388,17 +397,56 @@
       const dv=up.filter(v=>v.visit_date===d);
       html+=`<div class="daygroup"><div class="dayhead">${fmtDay(d)} <span>${dv.length} visit${dv.length===1?'':'s'}</span></div>`;
       dv.forEach(v=>{
-        html+=`<div class="visit"><div class="vt">${v.visit_time||'—'}</div>
-          <div class="vb"><b>${famName(v.family_id)}</b>
-          <div class="vm">${famById[v.family_id]?.neighborhood||''}${v.hours?(' · '+v.hours+' hours'):''}</div>
-          <div class="tags">${arr(v.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
-          <div class="vbtns"><button class="vbtn" onclick="openChat('${v.family_id}')">💬 Message</button>
-          <button class="vbtn" onclick="stub('This would open directions.')">📍 Directions</button></div></div>
-          <span class="pill ${v.status==='completed'?'done':'up'}">${(v.status||'').charAt(0).toUpperCase()+(v.status||'').slice(1)}</span></div>`;
+        const tasks=visitTasks[v.id]||[]; const cl=calLink(v); const open=(v.status==='upcoming'||v.status==='confirmed');
+        html+=`<div class="visit" style="flex-direction:column;align-items:stretch">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="vt">${v.visit_time||'—'}</div>
+            <div class="vb" style="flex:1"><b>${famName(v.family_id)}</b>
+              <div class="vm">${famById[v.family_id]?.neighborhood||''}${v.hours?(' · '+v.hours+' hours'):''}</div>
+              <div class="tags">${arr(v.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div></div>
+            <span class="pill ${v.status==='completed'?'done':'up'}">${(v.status||'').charAt(0).toUpperCase()+(v.status||'').slice(1)}</span>
+          </div>
+          <div class="checklist"><div class="ct">Checklist</div>
+            ${tasks.length? tasks.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}',this.checked)"><label>${esc(t.label)}</label></div>`).join('') : '<div style="color:var(--muted);font-size:.9rem">The family will add what they\'d like done.</div>'}
+          </div>
+          <div class="vacts">
+            <button class="actbtn" onclick="openChat('${v.family_id}')">💬 Message</button>
+            ${cl?`<a class="actbtn" href="${cl}" target="_blank">📅 Add to calendar</a>`:''}
+            ${open?`<button class="actbtn" onclick="doResched('${v.id}')">Reschedule</button><button class="actbtn warn" onclick="doCancel('${v.id}')">Cancel</button>`:''}
+          </div></div>`;
       });
       html+=`</div>`;
     });
     $('#v-schedule').innerHTML = `<div class="section-t">Upcoming</div>${html}`;
+  }
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function calLink(v){
+    if(!v.visit_date) return null;
+    let hh=9,mm=0; const t=(v.visit_time||'').match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
+    if(t){ hh=parseInt(t[1]); mm=t[2]?parseInt(t[2]):0; const ap=(t[3]||'').toLowerCase(); if(ap==='pm'&&hh<12)hh+=12; if(ap==='am'&&hh===12)hh=0; }
+    const sdt=new Date(v.visit_date+'T00:00:00'); sdt.setHours(hh,mm,0,0);
+    const edt=new Date(sdt.getTime()+(Number(v.hours)||3)*3600000);
+    const f=x=>x.getFullYear()+pad2(x.getMonth()+1)+pad2(x.getDate())+'T'+pad2(x.getHours())+pad2(x.getMinutes())+'00';
+    const title='Marmee visit'+(famName(v.family_id)?(' · '+famName(v.family_id)):'');
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+f(sdt)+'/'+f(edt);
+  }
+  async function loadTasks(){
+    visitTasks={}; const ids=myVisits.map(v=>v.id); if(!ids.length) return;
+    try{ const {data}=await db.from('visit_tasks').select('*').in('visit_id',ids).order('created_at',{ascending:true});
+      (data||[]).forEach(t=>{ (visitTasks[t.visit_id]=visitTasks[t.visit_id]||[]).push(t); }); }catch(e){}
+  }
+  async function reloadVisits(){
+    try{ const {data:v}=await db.from('visits').select('*').eq('mom_id',me.id); myVisits=v||[]; await loadTasks(); renderAll(); }catch(e){}
+  }
+  async function toggleTask(id,done){ try{ await db.from('visit_tasks').update({done}).eq('id',id); await reloadVisits(); }catch(e){} }
+  async function doCancel(id){
+    if(!confirm('Cancel this visit?')) return; const reason=prompt('Optional — reason:')||'';
+    try{ const {error}=await db.rpc('cancel_visit',{p_visit:id,p_reason:reason}); if(error){alert(error.message);return;} await reloadVisits(); }catch(e){ alert('Could not cancel.'); }
+  }
+  async function doResched(id){
+    const date=prompt('New date (YYYY-MM-DD):'); if(!date) return; const time=prompt('New time (e.g. 9:00 AM):'); if(!time) return;
+    try{ const {error}=await db.rpc('reschedule_visit',{p_visit:id,p_date:date,p_time:time}); if(error){alert(error.message);return;} await reloadVisits(); }catch(e){ alert('Could not reschedule.'); }
   }
 
   function renderEarnings(){
