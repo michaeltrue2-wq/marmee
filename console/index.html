@@ -196,7 +196,7 @@
            onkeydown="if(event.key==='Enter')login()">
     <button class="gate-btn" id="loginBtn" onclick="login()">Sign in</button>
     <div id="loginErr" style="display:none;margin-top:14px;color:var(--clay);font-size:0.88rem;font-weight:600;text-align:center"></div>
-    <div class="gate-hint">This is the private cockpit for you and your sister — families and moms never see it.</div>
+    <div class="gate-hint">This is the private cockpit for you and your sister — Moms and Marms never see it.</div>
   </div>
 </div>
 
@@ -239,7 +239,7 @@
 <div class="drawer" id="drawer">
   <div class="drawer-head">
     <button class="drawer-close" onclick="closeDrawer()">×</button>
-    <div class="dh-k">Assign a mom</div>
+    <div class="dh-k">Assign a Marm</div>
     <h3 id="drTitle">—</h3>
     <div class="dh-sub" id="drSub">—</div>
   </div>
@@ -261,15 +261,15 @@ if (window.supabase && window.supabase.createClient) {
 const NAV = [
   {id:'overview', ic:'◵', label:'Overview'},
   {id:'requests', ic:'✎', label:'Requests'},
-  {id:'moms',     ic:'❖', label:'Moms'},
-  {id:'families', ic:'♡', label:'Families'},
+  {id:'moms',     ic:'❖', label:'Marms'},
+  {id:'families', ic:'♡', label:'Moms'},
   {id:'schedule', ic:'▤', label:'Schedule'},
 ];
 const SUBS = {
   overview:'A quick read on the beta this week.',
-  requests:'New family requests waiting for a match.',
-  moms:'Your roster and everyone in vetting.',
-  families:'The households you serve.',
+  requests:'New Mom requests waiting for a match.',
+  moms:'Your Marm roster and everyone in vetting.',
+  families:'The Moms you serve.',
   schedule:'Every upcoming visit, by day.',
 };
 const STAGES = ['Applied','References','Background check','Welcome call'];
@@ -374,7 +374,7 @@ function renderOverview(){
   const est = Math.round(upcoming.reduce((s,v)=> s + (Number(v.hours)||0)*(Number(v.rate)||RATE)*FEE, 0));
   const stats = [
     {k:'Open requests', v:openReqs().length, alert:openReqs().length>0},
-    {k:'Active moms', v:activeMoms().length},
+    {k:'Active Marms', v:activeMoms().length},
     {k:'In vetting', v:pendingMoms().length, alert:pendingMoms().length>0},
     {k:'Upcoming visits', v:upcoming.length},
     {k:'Est. weekly take', v:`<small>$</small>${est}`},
@@ -387,7 +387,7 @@ function renderOverview(){
     oreq.forEach(r=>{
       attn += `<div class="row">
         <div class="avatar pine">${initials(famName(r.family_id))}</div>
-        <div class="rmain"><div class="name">${famName(r.family_id)} <span class="pill open">Needs a mom</span></div>
+        <div class="rmain"><div class="name">${famName(r.family_id)} <span class="pill open">Needs a Marm</span></div>
           <div class="meta">${r.frequency||''} · ${famById(r.family_id)?.neighborhood||''} · ${arr(r.areas).join(', ')}</div></div>
         <button class="act honey" onclick="openMatch('${r.id}')">Assign</button></div>`;
     });
@@ -412,9 +412,9 @@ function renderOverview(){
 
 function renderRequests(){
   const list = state.requests;
-  let html = `<div class="panel"><div class="panel-head"><h3>Family requests</h3>
+  let html = `<div class="panel"><div class="panel-head"><h3>Mom requests</h3>
     <span class="count">${openReqs().length} open · ${list.length-openReqs().length} matched</span></div>`;
-  if(!list.length){ html += `<div class="empty"><b>No requests yet</b>New family requests will land here.</div>`; }
+  if(!list.length){ html += `<div class="empty"><b>No requests yet</b>New Mom requests will land here.</div>`; }
   list.forEach(r=>{
     const matched = r.status!=='open';
     const mt = matchFor(r.id);
@@ -423,13 +423,13 @@ function renderRequests(){
       <div class="avatar pine">${initials(famName(r.family_id))}</div>
       <div class="rmain">
         <div class="name">${famName(r.family_id)}
-          ${matched?`<span class="pill good">Matched${mom?' · '+momName(mom):''}</span>`:`<span class="pill open">Needs a mom</span>`}</div>
+          ${matched?`<span class="pill good">Matched${mom?' · '+momName(mom):''}</span>`:`<span class="pill open">Needs a Marm</span>`}</div>
         <div class="meta">${r.frequency||''} · ${famById(r.family_id)?.neighborhood||''} · ${r.preferred_window||''}</div>
         <div class="chips">${arr(r.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
       </div>
       ${matched
         ? `<button class="act ghost" disabled>Scheduled</button>`
-        : `<button class="act honey" onclick="openMatch('${r.id}')">Assign a mom</button>`}
+        : `<button class="act honey" onclick="openMatch('${r.id}')">Assign a Marm</button>`}
     </div>`;
   });
   html += `</div>`;
@@ -438,21 +438,21 @@ function renderRequests(){
 
 function renderMoms(){
   const act=activeMoms(), pend=pendingMoms();
-  let html = `<div class="panel"><div class="panel-head"><h3>Active roster</h3><span class="count">${act.length} moms</span></div>`;
-  if(!act.length){ html += `<div class="empty"><b>No active moms yet</b>Approved moms will appear here.</div>`; }
+  let html = `<div class="panel"><div class="panel-head"><h3>Active roster</h3><span class="count">${act.length} Marm${act.length===1?'':'s'}</span></div>`;
+  if(!act.length){ html += `<div class="empty"><b>No active Marms yet</b>Approved Marms will appear here.</div>`; }
   act.forEach(m=>{
     const fc = momFamilyCount(m.id);
     html += `<div class="row">
       <div class="avatar">${initials(momName(m))}</div>
       <div class="rmain">
         <div class="name">${momName(m)} <span class="pill good">Active</span></div>
-        <div class="meta">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} famil${fc===1?'y':'ies'}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
+        <div class="meta">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} Mom${fc===1?'':'s'}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
         <div class="chips">${arr(m.areas).map(s=>`<span class="tag">${s}</span>`).join('')}</div>
       </div></div>`;
   });
   html += `</div>`;
   html += `<div class="panel"><div class="panel-head"><h3>In vetting</h3><span class="count">${pend.length} applicant${pend.length===1?'':'s'}</span></div>`;
-  if(!pend.length){ html += `<div class="empty"><b>Nobody waiting</b>New applicants from the mom sign-up show up here.</div>`; }
+  if(!pend.length){ html += `<div class="empty"><b>Nobody waiting</b>New applicants from the Marm sign-up show up here.</div>`; }
   pend.forEach(m=>{
     const stage = m.vetting_stage||0;
     const atEnd = stage >= STAGES.length-1;
@@ -478,12 +478,12 @@ function renderMoms(){
 }
 
 function renderFamilies(){
-  let html = `<div class="panel"><div class="panel-head"><h3>Client families</h3><span class="count">${state.families.length} households</span></div>`;
-  if(!state.families.length){ html += `<div class="empty"><b>No families yet</b>Add them here or they arrive from the family app.</div>`; }
+  let html = `<div class="panel"><div class="panel-head"><h3>Your Moms</h3><span class="count">${state.families.length} households</span></div>`;
+  if(!state.families.length){ html += `<div class="empty"><b>No Moms yet</b>Add them here or they arrive from the Mom app.</div>`; }
   state.families.forEach(f=>{
     const v = state.visits.filter(x=>x.family_id===f.id);
     const mom = v.length ? state.moms.find(m=>m.id===v[0].mom_id) : null;
-    const planTag = mom ? `<span class="tag hit">With ${momName(mom)}</span>` : `<span class="tag">No mom yet</span>`;
+    const planTag = mom ? `<span class="tag hit">With ${momName(mom)}</span>` : `<span class="tag">No Marm yet</span>`;
     html += `<div class="row">
       <div class="avatar pine">${initials(f.name)}</div>
       <div class="rmain">
@@ -500,7 +500,7 @@ function renderSchedule(){
   const vis = [...state.visits].filter(v=>v.status!=='cancelled')
     .sort((a,b)=> (a.visit_date||'zzzz').localeCompare(b.visit_date||'zzzz') || (a.visit_time||'').localeCompare(b.visit_time||''));
   let html = `<button class="sched-add" onclick="openScheduler()">＋ Schedule a visit</button>`;
-  if(!vis.length){ html += `<div class="panel"><div class="empty"><b>No visits scheduled</b>Match a family, then schedule their visits here.</div></div>`; }
+  if(!vis.length){ html += `<div class="panel"><div class="empty"><b>No visits scheduled</b>Match a Mom, then schedule their visits here.</div></div>`; }
   const days = [...new Set(vis.map(v=>v.visit_date))];
   days.forEach(d=>{
     const dv = vis.filter(v=>v.visit_date===d);
@@ -541,13 +541,13 @@ function openMatch(rid){
     return `<div class="cand">
       <div class="cand-top">
         <div class="avatar">${initials(momName(m))}</div>
-        <div class="cinfo"><b>${momName(m)}</b><div class="cm">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} famil${fc===1?'y':'ies'} now</div></div>
+        <div class="cinfo"><b>${momName(m)}</b><div class="cm">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} Mom${fc===1?'':'s'} now</div></div>
       </div>
       <div class="fit">${hits.length? `Covers ${hits.length} of ${reqAreas.length} areas`:'Available · no area overlap'}</div>
       <div class="chips" style="margin-bottom:12px">${reqAreas.map(t=>`<span class="tag ${arr(m.areas).includes(t)?'hit':''}">${t}</span>`).join('')}</div>
       <button class="act honey" onclick="pickMom('${m.id}')">Match ${m.first_name} with ${famName(r.family_id)}</button>
     </div>`;
-  }).join('') : `<div class="empty"><b>No active moms yet</b>Approve a mom in the Moms tab first.</div>`;
+  }).join('') : `<div class="empty"><b>No active Marms yet</b>Approve a Marm in the Marms tab first.</div>`;
   $('#scrim').classList.add('open'); $('#drawer').classList.add('open');
 }
 function closeDrawer(){ $('#scrim').classList.remove('open'); $('#drawer').classList.remove('open'); }
@@ -566,7 +566,7 @@ function pickMom(mid){
     <div class="schedrow"><label>Repeat</label><select id="svRepeat" onchange="document.getElementById('svCountRow').style.display=this.value==='one'?'none':'block'"><option value="one">One-time</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option></select></div>
     <div class="schedrow" id="svCountRow" style="display:none"><label>How many visits</label><input type="number" id="svCount" value="4" min="1" max="26"></div>
     <button class="act honey" style="width:100%" onclick="confirmMatch()">Match &amp; schedule visits</button>
-    <button class="act ghost" style="width:100%;margin-top:8px" onclick="openMatch(activeReqId)">← Back to moms</button>
+    <button class="act ghost" style="width:100%;margin-top:8px" onclick="openMatch(activeReqId)">← Back to Marms</button>
   </div>`;
 }
 
@@ -596,13 +596,13 @@ function openScheduler(){
   window.__pairs = pairs;
   const today = new Date().toISOString().slice(0,10);
   $('#drTitle').textContent = 'Schedule a visit';
-  $('#drSub').textContent = 'Book a visit for a matched family';
+  $('#drSub').textContent = 'Book a visit for a matched Mom';
   if(!pairs.length){
-    $('#drBody').innerHTML = `<div class="empty"><b>No matched families yet</b>Match a family with a mom first, then schedule their visits here.</div>`;
+    $('#drBody').innerHTML = `<div class="empty"><b>No matched Moms yet</b>Match a Mom with a Marm first, then schedule their visits here.</div>`;
   } else {
     const opts = pairs.map((p,i)=>`<option value="${i}">${famName(p.family_id)} → ${momName(state.moms.find(m=>m.id===p.mom_id)||{first_name:'—'})}</option>`).join('');
     $('#drBody').innerHTML = `<div class="cand">
-      <div class="schedrow"><label>Family &amp; mom</label><select id="svPair">${opts}</select></div>
+      <div class="schedrow"><label>Mom &amp; Marm</label><select id="svPair">${opts}</select></div>
       <div class="schedrow"><label>Date</label><input type="date" id="svDate" min="${today}"></div>
       <div class="schedrow"><label>Time</label><input type="text" id="svTime" placeholder="9:00 AM"></div>
       <div class="schedrow"><label>Hours</label><input type="number" id="svHours" value="3" min="1" step="0.5"></div>
