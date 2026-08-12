@@ -317,6 +317,7 @@ const $ = s => document.querySelector(s);
 
 /* ================= HELPERS ================= */
 const momName = m => (m.first_name + ' ' + (m.last_initial||'')).trim();
+const fmtPhone = p => { const d=(p||'').replace(/\D/g,''); return d.length===10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : (p||''); };
 const famById = id => state.families.find(f=>f.id===id);
 const famName = id => { const f=famById(id); return f ? f.name : '—'; };
 const initials = txt => { const p=(txt||'').replace(/^The /,'').trim().split(' '); return ((p[0]||'')[0]||'') + ((p[1]||'')[0]||''); };
@@ -529,6 +530,7 @@ function renderMoms(){
       <div class="rmain">
         <div class="name">${momName(m)} <span class="pill wait">${m.status==='new'?'New applicant':'Vetting'}</span></div>
         <div class="meta">${m.neighborhood||''}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
+        ${m.phone?`<div class="meta" style="margin-top:var(--s1)">☎ <a href="tel:${m.phone}" style="color:var(--honey-deep);font-weight:700;text-decoration:none">${fmtPhone(m.phone)}</a></div>`:'<div class="meta" style="margin-top:var(--s1);color:var(--clay)">No phone on file</div>'}
         ${pipe}
       </div>
       <button class="act" onclick="advance('${m.id}')">${atEnd?'Activate':'Mark '+STAGES[stage+1]+' done'}</button>
