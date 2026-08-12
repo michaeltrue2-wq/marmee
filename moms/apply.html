@@ -129,8 +129,8 @@
 
   /* nav bar */
   .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,0.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-  .nav-in{max-width:560px;margin:0 auto;padding:var(--s3) var(--s5);display:flex;gap:var(--s3);align-items:center}
-  .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:var(--t-md);font-weight:600;cursor:pointer;padding:var(--s3) var(--s1)}
+  .nav-in{max-width:560px;margin:0 auto;padding:var(--s3) var(--s5);display:flex;gap:var(--s3);align-items:center;position:relative;justify-content:center}
+  .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:var(--t-md);font-weight:600;cursor:pointer;padding:var(--s3) var(--s1);position:absolute;left:var(--s5);top:50%;transform:translateY(-50%);min-height:44px}
   .back:hover{color:var(--pine)}
   .back.hide{visibility:hidden}
   .next{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:var(--s4);border-radius:100px;font-family:inherit;font-weight:700;font-size:var(--t-lg);cursor:pointer;transition:background .15s;min-height:54px}
@@ -252,10 +252,10 @@
     <div class="field">
       <label class="fl">Days you'd like to work</label>
       <div class="chips">
-        <button class="chip day" onclick="tog(this)">M</button><button class="chip day" onclick="tog(this)">T</button>
-        <button class="chip day" onclick="tog(this)">W</button><button class="chip day" onclick="tog(this)">T</button>
-        <button class="chip day" onclick="tog(this)">F</button><button class="chip day" onclick="tog(this)">S</button>
-        <button class="chip day" onclick="tog(this)">S</button>
+        <button class="chip day" onclick="tog(this)" aria-label="Monday">Mon</button><button class="chip day" onclick="tog(this)" aria-label="Tuesday">Tue</button>
+        <button class="chip day" onclick="tog(this)" aria-label="Wednesday">Wed</button><button class="chip day" onclick="tog(this)" aria-label="Thursday">Thu</button>
+        <button class="chip day" onclick="tog(this)" aria-label="Friday">Fri</button><button class="chip day" onclick="tog(this)" aria-label="Saturday">Sat</button>
+        <button class="chip day" onclick="tog(this)" aria-label="Sunday">Sun</button>
       </div>
     </div>
     <div class="field">
@@ -411,9 +411,28 @@
   function next(){
     if(i === steps.length-2){ finish(); return; }   // the account step
     if(i >= steps.length-1){ return; }
+    // Validate the name here rather than at the very end. Otherwise she can
+    // complete all five steps and only then be sent back to step 2.
+    if(i === 2 && !val('#nm')){ stepErr('#nm','Please add your name before continuing.'); return; }
+    clearStepErr();
     i++; show();
   }
   function back(){ if(i>0){i--; show();} }
+
+  // Inline validation message, shown beside the field it refers to.
+  // #finishMsg lives inside the account step, so it is invisible from here.
+  function stepErr(sel,text){
+    const el=document.querySelector(sel); if(!el) return;
+    clearStepErr();
+    const p=document.createElement('div');
+    p.className='step-err';
+    p.textContent=text;
+    p.style.cssText='color:var(--clay);font-weight:600;font-size:var(--t-sm);margin-top:var(--s2)';
+    el.insertAdjacentElement('afterend', p);
+    el.focus(); el.scrollIntoView({block:'center', behavior:'smooth'});
+  }
+  function clearStepErr(){ document.querySelectorAll('.step-err').forEach(e=>e.remove()); }
+
 
   function tog(el){ el.classList.toggle('on'); }
   function one(el){
