@@ -902,46 +902,69 @@ async function refundVisit(id){
 
 async function completeVisit(id){
   const v = state.visits.find(x=>x.id===id);
-  const fam = v ? famById(v.family_id) : null;
-  const amount = v ? Math.round((Number(v.hours)||0) * (Number(v.rate)||RATE)) : 0;
+  if(!v) return;
+  const fam  = famById(v.family_id);
+  const mom  = state.moms.find(m=>m.id===v.mom_id);
+  const rate = Number(v.rate) || RATE;
+  const sched = Number(v.hours) || 0;
 
-  // No card on file: still mark it done, but say plainly that nothing was charged.
+  // Ask what actually happened before taking money for what was planned.
+  // The scheduled hours are the default, so the common case is one tap.
+  const r = await openSheet({
+    title: 'Mark this visit done',
+    sub: `${mom ? momName(mom) : 'The Marm'} at ${fam ? fam.name : 'this household'} · scheduled ${sched} hours`,
+    bodyHTML:
+      '<label for="shHours">Hours actually worked</label>' +
+      `<input type="number" id="shHours" value="${sched}" min="0" max="12" step="0.5">` +
+      `<div class="meta" id="shCalc" style="margin:calc(-1 * var(--s3)) 0 var(--s4)"></div>`,
+    okLabel: 'Mark done',
+    cancelLabel: 'Not yet'
+  });
+  if(!r.ok) return;
+
+  const hours = Math.max(0, Number(r.values.shHours));
+  if(!hours){ toast('Enter the hours worked.'); return; }
+  const amount = Math.round(hours * rate);
+
+  try{
+    // Write the real hours first — the charge function computes the amount
+    // from the row, never from anything the browser sends.
+    await db.from('visits').update({ status:'completed', hours }).eq('id', id);
+  }catch(e){ toast('Could not update that visit.'); return; }
+
+  // No card on file: it is still done, but say plainly that nothing was taken.
   if(fam && !fam.payment_method_id){
-    const ok = await askConfirm(
-      'Mark done without charging?',
-      `${fam.name || 'This household'} has no card on file, so the $${amount} for this visit will not be collected.`,
-      'Mark done anyway');
-    if(!ok) return;
-    try{
-      await db.from('visits').update({ status:'completed' }).eq('id', id);
-      await loadAll(); renderAll();
-      toast('Visit marked done — not charged, no card on file.');
-    }catch(e){ toast('Could not update. Try again.'); }
+    await loadAll(); renderAll();
+    toast(`Marked done — $${amount} not collected, no card on file.`);
     return;
   }
 
-  const ok = await askConfirm(
-    'Mark done and charge?',
-    `${fam ? fam.name : 'This household'} will be charged $${amount} for ${v ? v.hours : ''} hours.`,
+  const charge = await askConfirm(
+    `Charge $${amount}?`,
+    `${fam ? fam.name : 'This household'} for ${hours} hour${hours===1?'':'s'} at $${rate}/hour. ${mom?momName(mom):'The Marm'} keeps $${(amount*(1-0.15)).toFixed(2)}.`,
     `Charge $${amount}`);
-  if(!ok) return;
+
+  if(!charge){
+    await loadAll(); renderAll();
+    toast('Marked done. Not charged yet.');
+    return;
+  }
 
   try{
-    await db.from('visits').update({ status:'completed' }).eq('id', id);
     await loadAll(); renderAll();
-    toast('Marked done. Taking payment…');
+    toast('Taking payment…');
 
     const s = (await db.auth.getSession()).data.session;
-    const r = await fetch('https://book.hiremarmee.com/.netlify/functions/stripe-charge-visit', {
+    const res = await fetch('https://book.hiremarmee.com/.netlify/functions/stripe-charge-visit', {
       method:'POST',
       headers:{ 'content-type':'text/plain' },          // text/plain avoids the CORS preflight
       body: JSON.stringify({ token: s.access_token, visitId: id })
     });
-    const d = await r.json().catch(()=>({}));
+    const d = await res.json().catch(()=>({}));
 
     await loadAll(); renderAll();
 
-    if(!r.ok)                    toast(d.error || 'Marked done, but the card was declined.');
+    if(!res.ok)                  toast(d.error || 'Marked done, but the card was declined.');
     else if(d.alreadyCharged)    toast('Already paid — not charged again.');
     else if(d.status === 'paid') toast(`Paid $${(d.amountCents/100).toFixed(2)}.`);
     else                         toast(`Payment ${d.status}. Check Stripe.`);
@@ -986,6 +1009,15 @@ function _sheetClose(ok){
   const r=_sheetRes; _sheetRes=null;
   if(r) r({ok:!!ok, values});
 }
+function wireHoursCalc(rate){
+  const h = document.getElementById('shHours'), out = document.getElementById('shCalc');
+  if(!h || !out) return;
+  const paint = () => {
+    const n = Math.max(0, Number(h.value) || 0);
+    out.textContent = n ? `$${Math.round(n*rate)} charged · $${(n*rate*0.85).toFixed(2)} to her` : '';
+  };
+  h.addEventListener('input', paint); paint();
+}
 function openSheet(o){
   document.getElementById('sheetTitle').textContent=o.title||'';
   const sub=document.getElementById('sheetSub');
@@ -997,7 +1029,7 @@ function openSheet(o){
   document.getElementById('sheetCancel').textContent=o.cancelLabel||'Never mind';
   document.getElementById('sheetScrim').classList.add('on');
   document.getElementById('sheet').classList.add('on');
-  setTimeout(()=>{ const first=document.querySelector('#sheetBody input,#sheetBody textarea'); if(first) first.focus(); },260);
+  setTimeout(()=>{ const first=document.querySelector('#sheetBody input,#sheetBody textarea'); if(first) first.focus(); wireHoursCalc(RATE); },260);
   return new Promise(res=>{ _sheetRes=res; });
 }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && _sheetRes) _sheetClose(false); });
