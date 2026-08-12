@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Marmee — Your account</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root{--pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;--honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#8A6A1F;--blush:#E6C6B4;--ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;--clay:#B4552F}
+  :root{--pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;--honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#806116;--blush:#E6C6B4;--ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;--clay:#9D4526}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--ivory);color:var(--ink);font-size:16.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
   h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.14;letter-spacing:-.01em}
@@ -106,8 +106,8 @@
   .section-t2{font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--honey-deep);font-weight:700;margin:26px 0 12px}
   .stars{display:flex;gap:3px;margin:6px 0 10px}
   .star{background:none;border:none;font-size:1.7rem;line-height:1;color:var(--line);cursor:pointer;padding:0}
-  .star.on{color:var(--honey)}
-  .stars-ro{color:var(--honey);font-size:1.15rem;letter-spacing:2px}
+  .star.on{color:var(--honey-deep)}
+  .stars-ro{color:var(--honey-deep);font-size:1.15rem;letter-spacing:2px}
   .reviewbox{margin-top:12px;border-top:1px solid var(--ivory-dim);padding-top:11px}
   .rvt{font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .rev-input{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:.92rem;background:#fff;margin-bottom:9px}
@@ -146,7 +146,6 @@
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
 </div></div>
 
-<div class="buildtag">Marmee family · build 4</div>
 
 <script>
   console.log("Marmee family-index — build 4");
@@ -157,7 +156,56 @@
   const arr=a=>Array.isArray(a)?a:(a?String(a).replace(/[{}"]/g,'').split(',').filter(Boolean):[]);
   const initials=t=>{const p=(t||'').replace(/^The /,'').trim().split(' ');return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'');};
   function fmtDay(d){ if(!d) return 'To be scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
-  function gerr(m){ const e=$('#gateErr'); e.textContent=m; e.style.display=m?'block':'none'; }
+  // Shows a gate error. Optional {href,label} renders a link beneath it —
+  // built with DOM nodes, never innerHTML.
+  function gerr(m, link){
+    const e=$('#gateErr');
+    if(!m){ e.textContent=''; e.style.display='none'; return; }
+    e.textContent = m;
+    if(link){
+      e.appendChild(document.createElement('br'));
+      const a=document.createElement('a');
+      a.href=link.href; a.textContent=link.label;
+      a.style.cssText='color:inherit;font-weight:700;text-decoration:underline;display:inline-block;margin-top:6px';
+      e.appendChild(a);
+    }
+    e.style.display='block';
+  }
+
+  // ER-1: never show a raw backend string to a person.
+  const AUTH_MESSAGES = {
+    'Invalid login credentials':
+      'That email and password don\'t match. If you just applied, check your email for a confirmation link first.',
+    'Email not confirmed':
+      'Almost there — tap the link in the email we sent you, then sign in.',
+    'Email logins are disabled':
+      'Sign-in is temporarily unavailable. Please try again shortly.',
+    'User already registered':
+      'There is already an account with that email. Try signing in instead.',
+  };
+  function friendlyAuthError(error){
+    const raw = (error && error.message) || '';
+    return AUTH_MESSAGES[raw]
+      || 'That didn\'t work. Try again, or reply to our email and we\'ll sort it out.';
+  }
+
+  // ER-2 / ER-3: a session with no matching profile row used to be a dead end —
+  // the error painted over the gate, and the only sign-out control lived inside
+  // the app shell you could not reach. Sign the user out so they are never
+  // trapped, and if their account belongs to the other app, say so.
+  async function recoverNoProfile(uid){
+    let msg = 'We couldn\'t find your account yet. If you just requested help, give it a moment — or reply to our email and we\'ll sort it out.';
+    let link = null;
+    try{
+      const { data:other } = await db.from('moms').select('id').eq('user_id', uid);
+      if(other && other.length){
+        msg  = 'This looks like a Marm account, not a Mom account.';
+        link = { href:'https://moms.hiremarmee.com', label:'Sign in at moms.hiremarmee.com \u2192' };
+      }
+    }catch(e){}
+    try{ await db.auth.signOut(); }catch(e){}
+    gerr(msg, link);
+  }
   function stub(m){ alert(m.replace(/^This would /,'').replace(/\.$/,'')); }
   let me=null, myReqs=[], myVisits=[], momById={}, visitTasks={}, myReviews={};
 
@@ -169,7 +217,7 @@
     try{
       const { data, error }=await withTimeout(
         db.auth.signInWithPassword({ email, password:pass }), 15000);
-      if(error){ gerr(error.message||'That didn\'t work — check your details.'); }
+      if(error){ gerr(friendlyAuthError(error)); }
       else{ await withTimeout(enter(data&&data.user&&data.user.id), 15000); }
     }catch(e){
       gerr(e && e.message === 'timeout'
@@ -196,7 +244,7 @@
     }
     if(!uid){ gerr('Your session expired. Sign in again.'); return; }
     const { data:rows, error }=await db.from('families').select('*').eq('user_id', uid);
-    if(error||!rows||!rows.length){ gerr('We couldn\'t find your account. If you just requested help, give it a moment.'); return; }
+    if(error||!rows||!rows.length){ await recoverNoProfile(uid); return; }
     me=rows[0];
     const [{data:rq},{data:vs}]=await Promise.all([
       db.from('requests').select('*').eq('family_id', me.id),

@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Marmee — Get help around the house</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root{--pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;--honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#8A6A1F;--blush:#E6C6B4;--ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;--clay:#B4552F}
+  :root{--navbar-h:84px;--pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;--honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#806116;--blush:#E6C6B4;--ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;--clay:#9D4526}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--ivory);color:var(--ink);font-size:16.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
   h1,h2{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.12;letter-spacing:-.01em}
@@ -23,7 +23,8 @@
   .prog-track{height:6px;background:var(--ivory-dim);border-radius:100px;margin-top:14px;overflow:hidden}
   .prog-fill{height:100%;background:var(--honey);border-radius:100px;width:0;transition:width .35s ease}
   .prog-lbl{font-size:.82rem;color:var(--muted);font-weight:600;margin-top:7px}
-  .stage{max-width:580px;margin:0 auto;padding:26px 20px 150px}
+  /* LO-2: derived from the fixed footer height, not eyeballed. */
+  .stage{max-width:580px;margin:0 auto;padding:26px 20px calc(var(--navbar-h) + 24px + env(safe-area-inset-bottom,0px))}
   .step{display:none;animation:fade .32s ease}.step.on{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--honey-deep);margin-bottom:12px}
@@ -53,7 +54,7 @@
   .timeline li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--ivory-dim)}.timeline li:first-child{border-top:none}
   .timeline .tn{width:28px;height:28px;border-radius:50%;background:var(--ivory-dim);color:var(--pine);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;font-family:'Fraunces',serif}
   .timeline b{display:block}.timeline span{color:var(--muted);font-size:.95rem}
-  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
   .nav-in{max-width:580px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center}
   .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;padding:14px 6px}.back:hover{color:var(--pine)}.back.hide{visibility:hidden}
   .next{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:16px;border-radius:100px;font-family:inherit;font-weight:700;font-size:1.08rem;cursor:pointer;min-height:54px}
@@ -180,7 +181,6 @@
   <button class="next" id="nextBtn" onclick="next()">Get started</button>
 </div></div>
 
-<div class="buildtag">Marmee family · build 1</div>
 
 <script>
   console.log("Marmee family-request — build 1");

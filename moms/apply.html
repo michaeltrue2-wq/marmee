@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Marmee — Set up your profile</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
+    --navbar-h:84px;   /* height of the fixed footer nav — see LO-2 */
     --pine:#1E3A2E;--pine-deep:#152A21;--ivory:#F6F1E7;--ivory-dim:#EBE3D3;
-    --honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#8A6A1F;--blush:#E6C6B4;
+    --honey:#C8993A;--honey-soft:#E4B968;--honey-deep:#806116;--blush:#E6C6B4;
     --ink:#15201A;--muted:#5C6B60;--line:#E0D8C6;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -23,7 +24,7 @@
   .top{position:sticky;top:0;z-index:10;background:var(--ivory);border-bottom:1px solid var(--line)}
   .top-in{max-width:560px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
   .brand{font-family:'Fraunces',serif;font-size:1.35rem;font-weight:600;color:var(--pine);display:flex;align-items:center;gap:9px}
-  .later{background:none;border:none;color:var(--muted);font-family:inherit;font-size:0.95rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .later{background:none;border:none;color:var(--muted);font-family:inherit;font-size:0.95rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;min-height:44px;padding:12px 8px;display:inline-flex;align-items:center}
   .later:hover{color:var(--pine)}
   /* progress */
   .prog{max-width:560px;margin:0 auto;padding:0 20px}
@@ -31,7 +32,8 @@
   .prog-fill{height:100%;background:var(--honey);border-radius:100px;width:0;transition:width .35s ease}
   .prog-lbl{font-size:0.82rem;color:var(--muted);font-weight:600;margin-top:7px}
 
-  .stage{max-width:560px;margin:0 auto;padding:26px 20px 150px}
+  /* LO-2: derived from the fixed footer height, not eyeballed. */
+  .stage{max-width:560px;margin:0 auto;padding:26px 20px calc(var(--navbar-h) + 24px + env(safe-area-inset-bottom,0px))}
   .step{display:none;animation:fade .32s ease}
   .step.on{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -115,7 +117,7 @@
   .timeline span{color:var(--muted);font-size:0.95rem}
 
   /* nav bar */
-  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,0.96);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,0.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
   .nav-in{max-width:560px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center}
   .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;padding:14px 6px}
   .back:hover{color:var(--pine)}
@@ -452,6 +454,5 @@
 
   show();
 </script>
-<div style="position:fixed;bottom:6px;right:9px;font-size:10px;color:#8a6a1f;opacity:.55;z-index:9999;font-family:monospace">Marmee build 3</div>
 </body>
 </html>
