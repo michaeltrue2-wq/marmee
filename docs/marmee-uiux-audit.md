@@ -48,6 +48,8 @@ This is the headline, and it's worse than "ad hoc."
 
 **354 spacing declarations. 27 distinct values. 235 of them (66%) sit off any 4pt grid.**
 
+*Correction, found during the migration:* that count covered only the shorthand properties (`padding`, `margin`, `gap`). It missed the directional longhands — `margin-bottom:12px`, `margin-top:8px` and friends — which add **129 more declarations, 78 of them off-grid.** True totals: **483 declarations, 313 off-grid.** The migration covers both.
+
 ```
  14px  ×33  ← off-grid, and the most-used value in the product
  16px  ×32
@@ -148,7 +150,11 @@ Seventeen of them live between 12px and 17.6px:
 17.0   17.28  17.6
 ```
 
-**Nobody chose `14.72px`.** It's `0.92rem` inheriting through a parent that had already been scaled, and the multiplication compounding. The root cause is `em`/`rem` sizing applied inside nested containers that are themselves sized in `em`.
+**Nobody chose `14.72px`.**
+
+*Corrected diagnosis.* An earlier draft blamed `em` compounding through nested containers. That was wrong, and checking it took one command: **237 `rem` declarations, zero `em`, and no `html{font-size}` override anywhere.** So `rem × 16` exactly, with no inheritance involved — `14.72px` is simply `0.92rem`, a value picked by eye.
+
+That makes it a simpler problem than it looked. There's no cascade to untangle; there are just 43 hand-chosen values that never had a scale to snap to.
 
 **TY-2 · Medium · Two spellings of the same value.**
 `.95rem` and `0.95rem` both appear; so do `.9`/`0.9`, `.82`/`0.82`, `.78`/`0.78`, `.92`/`0.92`, `.8`/`0.8`, `.76`/`0.76`, `.85`/`0.85`, `.74`, `.88`, `.97`, `.98`, `.68`. This is why the problem was invisible — no two greps agree, so the scale never looked as fragmented as it is.
