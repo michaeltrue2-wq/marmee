@@ -139,6 +139,13 @@
   .tagline .tag{background:var(--ivory);border:1px solid var(--line);color:var(--pine);font-size:var(--t-sm);padding:var(--s1) var(--s3);border-radius:100px;font-weight:500}
 
   /* bottom nav */
+
+  /* photos */
+  .phgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin-top:var(--s2)}
+  .phcell{aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--ivory-dim);border:1px solid var(--line)}
+  .phcell img{width:100%;height:100%;object-fit:cover;display:block}
+  .avawrap{position:relative;cursor:pointer}
+  .avawrap .avaedit{position:absolute;bottom:-2px;right:-2px;background:var(--honey);color:var(--pine-deep);border:2px solid var(--ivory);border-radius:100px;font-size:10px;font-weight:700;padding:2px 6px}
   .tabbar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
   .tabbar-in{max-width:460px;margin:0 auto;display:flex}
   .tab{flex:1;background:none;border:none;padding:var(--s3) var(--s1) var(--s3);font-family:inherit;cursor:pointer;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:var(--s1);transition:color .15s}
@@ -167,6 +174,18 @@
   .gate-apply{margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--ivory-dim);text-align:center;font-size:var(--t-md);color:var(--muted)}
   .gate-apply a{color:var(--honey-deep);font-weight:700;text-decoration:none}
   .gate-apply a:hover{text-decoration:underline}
+  /* The gate is the front door for people who have never heard of us, not
+     just a lock for people who already have an account. The invitation goes
+     first and gets the honey button; signing in sits below it. */
+  .gate-cta{display:block;width:100%;box-sizing:border-box;background:var(--honey);color:var(--pine-deep);
+    border:none;padding:var(--s4);border-radius:100px;font-family:inherit;font-weight:700;font-size:var(--t-md);
+    text-align:center;text-decoration:none;min-height:52px;line-height:1.4;cursor:pointer;margin-bottom:var(--s5)}
+  .gate-cta:hover{background:var(--honey-soft)}
+  .gate-div{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5);
+    color:var(--muted);font-size:var(--t-sm);font-weight:600}
+  .gate-div::before,.gate-div::after{content:'';flex:1;height:1px;background:var(--ivory-dim)}
+  .gate-btn.secondary{background:var(--pine);color:var(--ivory)}
+  .gate-btn.secondary:hover{background:var(--pine-deep)}
   /* vetting status screen */
   .vet{display:none;max-width:520px;margin:0 auto;padding:var(--s7) var(--s5) var(--s10);min-height:100vh;min-height:100dvh}
   .vet.on{display:block}
@@ -249,17 +268,22 @@
 <div class="gate" id="gate">
   <div class="gate-card">
     <div class="gate-logo"><span class="dot"></span>Marmee</div>
-    <div class="gate-sub">Sign in to see your visits and earnings.</div>
+    <div class="gate-sub">Good work helping families near you. A few hours a week, close to home,
+      on the days you choose.</div>
+
+    <a class="gate-cta" href="apply.html">Start your application &rarr;</a>
+
+    <div class="gate-div">Already applied?</div>
+
     <label for="email">Email</label>
     <input id="email" type="email" placeholder="you@example.com" autocomplete="username"
            onkeydown="if(event.key==='Enter')document.getElementById('pass').focus()">
     <label for="pass">Password</label>
     <input id="pass" type="password" placeholder="Your password" autocomplete="current-password"
            onkeydown="if(event.key==='Enter')login()">
-    <button class="gate-btn" id="loginBtn" onclick="login()">Sign in</button>
+    <button class="gate-btn secondary" id="loginBtn" onclick="login()">Sign in</button>
     <div class="gate-err" id="gateErr"></div>
     <button class="resend-link" id="resendBtn" onclick="resendConfirm()">Didn’t get the confirmation email? Send it again</button>
-    <div class="gate-apply">New to Marmee? <a href="apply.html">Start your application →</a></div>
   </div>
 </div>
 
@@ -276,7 +300,8 @@
 <!-- ============ DASHBOARD (logged in, active) ============ -->
 <div class="app" id="app" style="display:none">
   <div class="hdr">
-    <div class="ava" id="ava">·</div>
+    <div class="avawrap" onclick="pickAvatar()"><div class="ava" id="ava">·</div><span class="avaedit">edit</span></div>
+    <input type="file" id="avaFile" accept="image/*" style="display:none" onchange="onAvatarPicked(this)">
     <div class="hi">
       <!-- LO-4: "Good afternoon, Master" wrapped to three lines at 390px.
            Time-of-day is now a small eyebrow; the name gets the big type. -->
@@ -288,6 +313,7 @@
   </div>
 
   <div class="view on" id="v-home"></div>
+  <div id="theirPhotos" style="padding:0 var(--s5)"></div>
   <div class="view" id="v-schedule"></div>
   <div class="view" id="v-earnings"></div>
   <div class="view" id="v-you"></div>
@@ -325,6 +351,12 @@
   const $ = s => document.querySelector(s);
   const arr = a => Array.isArray(a) ? a : (a ? String(a).replace(/[{}"]/g,'').split(',').filter(Boolean) : []);
   const initials = t => { const p=(t||'').replace(/^The /,'').trim().split(' '); return ((p[0]||'')[0]||'')+((p[1]||'')[0]||''); };
+  // What she is walking into: the kind of home, and the stairs. Said before
+  // the visit rather than discovered on the doorstep.
+  function homeLine(f){
+    if(!f) return '';
+    return [f.home_type, f.stairs].filter(Boolean).join(' · ');
+  }
   function fmtDay(d){ if(!d) return 'Scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 
   let me = null, myVisits = [], famById = {}, visitTasks = {}, myReviews = {};
@@ -484,6 +516,7 @@
     $('#ava').textContent = (me.first_name||'·')[0];
     $('#today').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
     renderHome(); renderSchedule(); renderEarnings(); renderYou();
+    paintAvatar(); renderHomePhotos();
   }
 
   function renderHome(){
@@ -498,7 +531,7 @@
         <div class="hk">Next visit · ${fmtDay(next.visit_date)}</div>
         <div class="when">${next.visit_time||''}</div>
         <div class="fam">${famName(next.family_id)}${famById[next.family_id]?(' · '+(famById[next.family_id].neighborhood||'')):''}</div>
-        <div class="det">${next.hours?next.hours+' hours':''}</div>
+        <div class="det">${[next.hours?next.hours+' hours':'', homeLine(famById[next.family_id])].filter(Boolean).join(' · ')}</div>
         <div class="tags">${arr(next.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         <div class="btns">
           <button class="hbtn" onclick="openChat('${next.family_id}')">💬 Message</button>
@@ -509,7 +542,7 @@
         <div class="when" style="font-size:var(--t-xl)">No visits booked yet</div>
         <div class="det">We're finding Moms near you — you'll see your first visit here.</div></div>`;
     }
-    let fams = famIds.map(id=>`<div class="fchip" onclick="openChat('${id}')"><div class="fav">${initials(famName(id))}</div><b>${famName(id)}</b><span>${famById[id]?.neighborhood||''}</span></div>`).join('');
+    let fams = famIds.map(id=>`<div class="fchip" onclick="openChat('${id}')"><div class="fav">${initials(famName(id))}</div><b>${famName(id)}</b><span>${[famById[id]?.neighborhood||'', homeLine(famById[id])].filter(Boolean).join(' · ')}</span></div>`).join('');
     if(!fams) fams = `<div class="fchip" style="cursor:default"><span style="color:var(--muted)">No Moms yet</span></div>`;
     $('#v-home').innerHTML = `
       <div class="section-t">Your next visit</div>${hero}
@@ -617,6 +650,57 @@
       if(error){ toast('Could not save your rating.'); return; } await reloadVisits(); toast('Thanks — rating saved.'); }catch(e){ toast('Could not save your rating.'); }
   }
 
+
+  /* ---- Photos -------------------------------------------------------------
+     Private bucket. Files are only reachable through a signed URL, and the
+     policy only issues one to the owner, an operator, or the person on the
+     other side of a match.
+  
+     Phones produce 4MB photos. Downscaling in the browser before upload keeps
+     it quick on a weak connection and keeps storage small.                   */
+  const _urlCache = {};
+  
+  async function photoUrl(path){
+    if(!path) return null;
+    if(_urlCache[path]) return _urlCache[path];
+    try{
+      const { data, error } = await db.storage.from('photos').createSignedUrl(path, 3600);
+      if(error) return null;
+      _urlCache[path] = data.signedUrl;
+      return data.signedUrl;
+    }catch(e){ return null; }
+  }
+  
+  function downscale(file, maxPx){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width:w, height:h } = img;
+        const scale = Math.min(1, maxPx / Math.max(w, h));
+        w = Math.round(w * scale); h = Math.round(h * scale);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        c.toBlob(b => b ? resolve(b) : reject(new Error('Could not read that image.')), 'image/jpeg', 0.82);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file is not an image we can read.')); };
+      img.src = url;
+    });
+  }
+  
+  async function uploadPhoto(file, path, maxPx){
+    if(!/^image\//.test(file.type)) throw new Error('Please choose a photo.');
+    const blob = await downscale(file, maxPx || 1400);
+    const { error } = await db.storage.from('photos').upload(path, blob, {
+      contentType: 'image/jpeg', upsert: true
+    });
+    if(error) throw new Error(error.message || 'Could not upload that photo.');
+    delete _urlCache[path];
+    return path;
+  }
+  
   function renderEarnings(){
     const done = myVisits.filter(v=>v.status==='completed')
       .sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
@@ -651,6 +735,50 @@
       <div class="reassure"><span class="ri">🌿</span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${RATE}/hour</b>, and Marmee keeps ${Math.round(PLATFORM_FEE*100)}%.</div></div>`;
   }
 
+  function pickAvatar(){ document.getElementById('avaFile').click(); }
+
+  async function onAvatarPicked(input){
+    const f = input.files && input.files[0]; input.value='';
+    if(!f || !me) return;
+    try{
+      toast('Uploading…');
+      const path = `moms/${me.id}/avatar.jpg`;
+      await uploadPhoto(f, path, 600);
+      await db.from('moms').update({ avatar_path: path }).eq('id', me.id);
+      me.avatar_path = path;
+      await paintAvatar();
+      toast('Photo updated.');
+    }catch(e){ toast(e.message || 'Could not upload that photo.'); }
+  }
+
+  async function paintAvatar(){
+    const el = document.getElementById('ava'); if(!el || !me) return;
+    const url = await photoUrl(me.avatar_path);
+    if(url) el.style.cssText = 'background-image:url('+url+');background-size:cover;background-position:center;color:transparent';
+  }
+
+  // The households she is matched with have shown her their home. Read-only
+  // here — she can look, not change or remove.
+  async function renderHomePhotos(){
+    const wrap = document.getElementById('theirPhotos'); if(!wrap) return;
+    const famIds = [...new Set(myVisits.map(v=>v.family_id).filter(Boolean))];
+    let html = '';
+    for(const fid of famIds){
+      let paths = [];
+      try{
+        const { data } = await db.storage.from('photos').list(`families/${fid}/home`, { limit: 12 });
+        paths = (data||[]).filter(o=>o.name).map(o=>`families/${fid}/home/${o.name}`);
+      }catch(e){}
+      if(!paths.length) continue;
+      const cells = await Promise.all(paths.map(async p=>{
+        const u = await photoUrl(p);
+        return u ? `<div class="phcell"><img src="${u}" alt=""></div>` : '';
+      }));
+      html += `<div class="section-t">${famName(fid)}'s home</div><div class="phgrid">${cells.join('')}</div>`;
+    }
+    wrap.innerHTML = html;
+  }
+
   function renderYou(){
     const areas = arr(me.areas);
     const avail = arr(me.times_available).join(', ') || 'Not set yet';
@@ -664,7 +792,8 @@
       </div>
       <div class="prow" onclick="stub('This would let you edit your days and times.')"><span class="pic">🗓️</span><div class="pl"><b>Availability</b><span>${avail}</span></div><span class="arr">›</span></div>
       <div class="prow" onclick="stub('This would let you edit the areas you help with.')"><span class="pic">❖</span><div class="pl"><b>Areas you help with</b><span>${areas.join(', ')||'—'}</span></div><span class="arr">›</span></div>
-      <div class="prow" onclick="stub('This would open your payout settings.')"><span class="pic">💳</span><div class="pl"><b>Payment</b><span>Set up direct deposit</span></div><span class="arr">›</span></div>
+      <div class="prow" onclick="stub('We pay you directly for now — bank details are not needed yet.')"><span class="pic">💳</span><div class="pl"><b>How you're paid</b><span>Paid by Marmee after each visit</span></div><span class="arr">›</span></div>
+      <div class="prow" style="display:none"><span class="pic">💳</span><div class="pl"><b>Payment</b><span>Set up direct deposit</span></div><span class="arr">›</span></div>
       <div class="prow" onclick="takeBreak()"><span class="pic">☕</span><div class="pl"><b>Take a break</b><span>Pause new matches while you're away</span></div><span class="arr">›</span></div>
       <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>`;
   }
@@ -845,3 +974,4 @@ async function resendConfirm(){
 </div>
 </body>
 </html>
+<!-- build: home-and-stairs 20260812T222712Z -->

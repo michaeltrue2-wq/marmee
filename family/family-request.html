@@ -124,9 +124,26 @@
         <option>Westbrook</option><option>Other nearby</option>
       </select>
     </div>
+    <div class="field">
+      <label class="fl">Your home</label>
+      <div class="chips" data-single data-k="home">
+        <button class="chip" onclick="one(this)">House</button>
+        <button class="chip" onclick="one(this)">Apartment</button>
+        <button class="chip" onclick="one(this)">Condo</button>
+        <button class="chip" onclick="one(this)">Townhouse</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fl">Stairs to your door</label>
+      <div class="chips" data-single data-k="stairs">
+        <button class="chip" onclick="one(this)">No stairs</button>
+        <button class="chip" onclick="one(this)">One flight</button>
+        <button class="chip" onclick="one(this)">Two or more</button>
+      </div>
+    </div>
     <div class="field" style="margin-bottom:0">
       <label class="fl">Kids at home <span class="opt">— optional</span></label>
-      <div class="chips" data-single>
+      <div class="chips" data-single data-k="kids">
         <button class="chip" onclick="one(this)">No kids</button>
         <button class="chip" onclick="one(this)">1 kid</button>
         <button class="chip" onclick="one(this)">2 kids</button>
@@ -236,13 +253,16 @@
     const S=steps;
     const areas = safe(()=>[...S[1].querySelectorAll('.card.on')].map(c=>c.dataset.v), []);
     const neighborhood = safe(()=>document.querySelector('#hood')?.value, null) || null;
-    const household = safe(()=>txt(S[2].querySelector('.chips[data-single] .chip.on')), '') || null;
+    const pick = k => safe(()=>txt(S[2].querySelector(`.chips[data-k="${k}"] .chip.on`)), '') || null;
+    const home_type = pick('home');
+    const stairs    = pick('stairs');
+    const household = pick('kids');
     const wc = safe(()=>S[3].querySelectorAll('.chips'), []);
     const frequency = safe(()=>txt(wc[0].querySelector('.chip.on')), '') || null;
     const times = safe(()=>[...wc[1].querySelectorAll('.chip.on')].map(c=>c.textContent.trim()), []);
     const window_ = times.length ? times.join(', ') : null;
     const name = val('#nm') || null;
-    return { areas, neighborhood, household, frequency, window: window_, name };
+    return { areas, neighborhood, household, home_type, stairs, frequency, window: window_, name };
   }
 
   async function finish(){
@@ -257,6 +277,7 @@
       const d=collect();
       if(!d.name){ reset('Please add your name.'); return; }
       const meta={ role:'family', name:d.name, neighborhood:d.neighborhood, household:d.household,
+        home_type:d.home_type, stairs:d.stairs,
         request:{ areas:d.areas, frequency:d.frequency, window:d.window } };
       const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('The server took too long to respond. Check your connection and try again.')),15000));
       const { data:su, error } = await Promise.race([ db.auth.signUp({ email, password:pass, options:{ data:meta, emailRedirectTo:'https://book.hiremarmee.com/' } }), timeout ]);

@@ -196,6 +196,11 @@
   .cand.imperfect{border-color:rgba(157,69,38,.35)}
   .minibtn{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:var(--s2) var(--s3);font-family:inherit;font-size:var(--t-sm);font-weight:600;cursor:pointer;white-space:nowrap}
   .minibtn:hover{border-color:var(--honey)}
+  .bg-missing{margin-top:var(--s2);display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+    color:var(--clay);font-weight:600}
+  .vetlog{margin-top:var(--s3);border-left:2px solid var(--line);padding-left:var(--s3)}
+  .vetrow{font-size:var(--t-sm);color:var(--pine);padding:var(--s1) 0}
+  .vetwhen{color:var(--slate);font-weight:400;margin-left:var(--s2)}
   .minibtn.done{background:var(--pine);color:var(--ivory);border-color:var(--pine)}
   .sched-add{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:var(--s3) var(--s5);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer;margin-bottom:var(--s4)}
   .sched-add:hover{background:var(--honey-soft)}
@@ -319,14 +324,23 @@ const SUBS = {
 };
 const STAGES = ['Applied','References','Background check','Welcome call'];
 
-let state = { moms:[], families:[], requests:[], visits:[], matches:[] };
+let state = { moms:[], families:[], requests:[], visits:[], matches:[], vetting:[] };
+
+// Everything typed by hand goes through here before it reaches innerHTML.
+function esc(v){
+  return String(v==null?'':v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 const $ = s => document.querySelector(s);
 
 /* ================= HELPERS ================= */
-const momName = m => (m.first_name + ' ' + (m.last_initial||'')).trim();
+const momNameRaw = m => ((m.first_name||'') + ' ' + (m.last_initial||'')).trim();
+const momName    = m => esc(momNameRaw(m));
 const fmtPhone = p => { const d=(p||'').replace(/\D/g,''); return d.length===10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : (p||''); };
 const famById = id => state.families.find(f=>f.id===id);
-const famName = id => { const f=famById(id); return f ? f.name : '—'; };
+const famNameRaw = id => { const f=famById(id); return f ? (f.name||'—') : '—'; };
+const famName    = id => esc(famNameRaw(id));
 const initials = txt => { const p=(txt||'').replace(/^The /,'').trim().split(' '); return ((p[0]||'')[0]||'') + ((p[1]||'')[0]||''); };
 const openReqs = () => state.requests.filter(r=>r.status==='open');
 const activeMoms = () => state.moms.filter(m=>m.status==='active');
@@ -335,8 +349,23 @@ const momFamilyCount = id => new Set(state.visits.filter(v=>v.mom_id===id).map(v
 const matchFor = reqId => state.matches.find(mt=>mt.request_id===reqId);
 function fmtDay(d){
   if(!d) return 'Scheduled';
-  const dt = new Date(d + 'T12:00:00');
+  // `visit_date` is a plain date; `completed_at` and `bg_checked_at` are
+  // timestamptz. Appending T12:00:00 to a value that already carries a time
+  // gives "Invalid Date" — which is what the vetting log rendered.
+  // Midday anchoring stays for bare dates so a timezone shift can't walk
+  // them back a day.
+  const dt = /[T ]/.test(String(d)) ? new Date(d) : new Date(d + 'T12:00:00');
+  if(isNaN(dt)) return '';
   return dt.toLocaleDateString('en-US',{weekday:'short', month:'short', day:'numeric'});
+}
+
+// toISOString() is UTC. In Maine that rolls over at 8pm EDT, so from 8pm the
+// console called tomorrow "today": today's visits dropped into "Needs
+// attention — these dates have passed" with an Overdue pill, and the date
+// pickers refused to let you book anything for today.
+function todayLocal(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 function arr(a){ return Array.isArray(a) ? a : (a ? String(a).replace(/[{}"]/g,'').split(',').filter(Boolean) : []); }
 
@@ -398,18 +427,31 @@ async function enterApp(signedInUser){
 }
 
 /* ================= DATA ================= */
+// supabase-js RESOLVES with { data, error }; it never rejects on an RLS
+// denial, a constraint violation or a 400. So every `try{ await db...update()
+// }catch{}` in this file was dead code: the write failed, the catch never
+// fired, and the operator got a success toast. Worse, completeVisit() then
+// ran on and charged a card for a visit it had failed to mark done.
+// Wrap a write in must() and a failure behaves like one.
+async function must(builder, what){
+  const { data, error } = await builder;
+  if(error) throw new Error((what || 'That change') + ' failed: ' + error.message);
+  return data;
+}
+
 async function loadAll(){
   try{
-    const [m,f,r,v,mt] = await Promise.all([
+    const [m,f,r,v,mt,vg] = await Promise.all([
       db.from('moms').select('*').order('created_at',{ascending:true}),
       db.from('families').select('*').order('created_at',{ascending:true}),
       db.from('requests').select('*').order('created_at',{ascending:true}),
       db.from('visits').select('*'),
       db.from('matches').select('*'),
+      db.from('vetting_log').select('*').order('completed_at',{ascending:true}),
     ]);
     state.moms = m.data||[]; state.families=f.data||[]; state.requests=r.data||[];
-    state.visits=v.data||[]; state.matches=mt.data||[];
-    if(m.error||f.error||r.error){ toast('Loaded, but some data was blocked — did the access rules run?'); }
+    state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[];
+    if(m.error||f.error||r.error||v.error||mt.error||vg.error){ toast('Loaded, but some data was blocked — did the access rules run?'); }
   }catch(e){ toast('Could not load data. Check your connection.'); }
 }
 
@@ -452,12 +494,23 @@ function renderAll(){ buildNav(); renderOverview(); renderRequests(); renderMoms
 function renderOverview(){
   const upcoming = state.visits.filter(v=>v.status==='upcoming'||v.status==='confirmed');
   const est = Math.round(upcoming.reduce((s,v)=> s + (Number(v.hours)||0)*(Number(v.rate)||RATE)*FEE, 0));
+
+  // Money that actually arrived, and money owed but not collected. The
+  // estimate above is a forecast; these two are facts.
+  const collected = state.visits
+    .filter(v=>v.payment_status==='paid')
+    .reduce((s,v)=> s + (Number(v.amount_cents)||0)/100, 0);
+  const outstanding = state.visits
+    .filter(v=>v.status==='completed' && !['paid','refunded'].includes(v.payment_status))
+    .reduce((s,v)=> s + (Number(v.hours)||0)*(Number(v.rate)||RATE), 0);
+  const noCard = state.families.filter(f=>!f.payment_method_id).length;
   const stats = [
     {k:'Open requests', v:openReqs().length, alert:openReqs().length>0},
     {k:'Active Marms', v:activeMoms().length},
     {k:'In vetting', v:pendingMoms().length, alert:pendingMoms().length>0},
     {k:'Upcoming visits', v:upcoming.length},
-    {k:'Est. weekly take', v:`<small>$</small>${est}`},
+    {k:'Your cut, collected', v:`<small>$</small>${Math.round(collected*FEE)}`},
+    {k:'Uncollected', v:`<small>$</small>${Math.round(outstanding)}`, alert: outstanding > 0},
   ];
   let attn='';
   const oreq=openReqs(), pmoms=pendingMoms();
@@ -466,17 +519,17 @@ function renderOverview(){
   } else {
     oreq.forEach(r=>{
       attn += `<div class="row">
-        <div class="avatar pine">${initials(famName(r.family_id))}</div>
+        <div class="avatar pine">${initials(famNameRaw(r.family_id))}</div>
         <div class="rmain"><div class="name">${famName(r.family_id)} <span class="pill open">Needs a Marm</span></div>
-          <div class="meta">${r.frequency||''} · ${famById(r.family_id)?.neighborhood||''} · ${arr(r.areas).join(', ')}</div></div>
+          <div class="meta">${esc(r.frequency||'')} · ${esc(famById(r.family_id)?.neighborhood||'')} · ${esc(arr(r.areas).join(', '))}</div></div>
         <button class="act honey" onclick="openMatch('${r.id}')">Assign</button></div>`;
     });
     pmoms.forEach(m=>{
       const stg = STAGES[m.vetting_stage] || 'Ready';
       attn += `<div class="row">
-        <div class="avatar">${initials(momName(m))}</div>
+        <div class="avatar">${initials(momNameRaw(m))}</div>
         <div class="rmain"><div class="name">${momName(m)} <span class="pill wait">In vetting</span></div>
-          <div class="meta">Next step: ${stg} · ${m.neighborhood||''}</div></div>
+          <div class="meta">Next step: ${stg} · ${esc(m.neighborhood||'')}</div></div>
         <button class="act" onclick="go('moms','${m.id}')">Review</button></div>`;
     });
   }
@@ -500,12 +553,12 @@ function renderRequests(){
     const mt = matchFor(r.id);
     const mom = mt ? state.moms.find(m=>m.id===mt.mom_id) : null;
     html += `<div class="row">
-      <div class="avatar pine">${initials(famName(r.family_id))}</div>
+      <div class="avatar pine">${initials(famNameRaw(r.family_id))}</div>
       <div class="rmain">
         <div class="name">${famName(r.family_id)}
           ${matched?`<span class="pill good">Matched${mom?' · '+momName(mom):''}</span>`:`<span class="pill open">Needs a Marm</span>`}</div>
-        <div class="meta">${r.frequency||''} · ${famById(r.family_id)?.neighborhood||''} · ${r.preferred_window||''}</div>
-        <div class="chips">${arr(r.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="meta">${esc(r.frequency||'')} · ${esc(famById(r.family_id)?.neighborhood||'')} · ${esc(r.preferred_window||'')}</div>
+        <div class="chips">${arr(r.areas).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
       </div>
       ${matched
         ? `<button class="act ghost" disabled>Scheduled</button>`
@@ -514,6 +567,25 @@ function renderRequests(){
   });
   html += `</div>`;
   $('#view-requests').innerHTML = html;
+}
+
+// The record of what was actually done, in the operator's own words.
+function vetHistory(momId){
+  const rows = (state.vetting||[]).filter(x=>x.mom_id===momId);
+  if(!rows.length) return '<div class="meta" style="margin-top:var(--s2);color:var(--clay)">No steps recorded yet</div>';
+  return '<div class="vetlog">' + rows.map(x=>
+    `<div class="vetrow"><b>${x.stage}</b>${x.note?(' — '+esc(x.note)):''}
+     <span class="vetwhen">${fmtDay(x.completed_at)}</span></div>`).join('') + '</div>';
+}
+
+// Shown wherever a Marm appears, vetting or active. An active Marm without a
+// recorded check is the thing you most need to see, so it is loudest there.
+function bgLine(m){
+  if(m.bg_check_status === 'clear'){
+    return `<div class="meta" style="margin-top:var(--s1)">✓ Background check clear${m.bg_reference?(' · '+esc(m.bg_reference)):''}${m.bg_checked_at?(' · '+fmtDay(m.bg_checked_at)):''}</div>`;
+  }
+  return `<div class="meta bg-missing"><span>⚠ No background check on file</span>
+    <button class="minibtn" onclick="markBgClear('${m.id}')">Record it</button></div>`;
 }
 
 function renderMoms(){
@@ -533,12 +605,14 @@ function renderMoms(){
     });
     pipe+='</div>';
     html += `<div class="row" id="rec-${m.id}" style="align-items:flex-start">
-      <div class="avatar">${initials(momName(m))}</div>
+      <div class="avatar">${initials(momNameRaw(m))}</div>
       <div class="rmain">
         <div class="name">${momName(m)} <span class="pill wait">${m.status==='new'?'New applicant':'Vetting'}</span></div>
-        <div class="meta">${m.neighborhood||''}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
-        ${m.phone?`<div class="meta" style="margin-top:var(--s1)">☎ <a href="tel:${m.phone}" style="color:var(--honey-deep);font-weight:700;text-decoration:none">${fmtPhone(m.phone)}</a></div>`:'<div class="meta" style="margin-top:var(--s1);color:var(--clay)">No phone on file</div>'}
+        <div class="meta">${esc(m.neighborhood||'')}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
+        ${m.phone?`<div class="meta" style="margin-top:var(--s1)">☎ <a href="tel:${encodeURIComponent(String(m.phone).replace(/[^0-9+]/g,''))}" style="color:var(--honey-deep);font-weight:700;text-decoration:none">${esc(fmtPhone(m.phone))}</a></div>`:'<div class="meta" style="margin-top:var(--s1);color:var(--clay)">No phone on file</div>'}
+        ${bgLine(m)}
         ${pipe}
+        ${vetHistory(m.id)}
       </div>
       <button class="act" onclick="advance('${m.id}')">${atEnd?'Activate':'Mark '+STAGES[stage+1]+' done'}</button>
     </div>`;
@@ -550,11 +624,14 @@ function renderMoms(){
   act.forEach(m=>{
     const fc = momFamilyCount(m.id);
     html += `<div class="row" id="rec-${m.id}">
-      <div class="avatar">${initials(momName(m))}</div>
+      <div class="avatar">${initials(momNameRaw(m))}</div>
       <div class="rmain">
-        <div class="name">${momName(m)} <span class="pill good">Active</span></div>
-        <div class="meta">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} Mom${fc===1?'':'s'}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
-        <div class="chips">${arr(m.areas).map(x=>`<span class="tag">${x}</span>`).join('')}</div>
+        <div class="name">${momName(m)} ${m.bg_check_status==='clear'
+          ? '<span class="pill good">Active</span>'
+          : '<span class="pill wait">Active — unverified</span>'}</div>
+        <div class="meta">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${esc(m.neighborhood||'')} · ${fc} Mom${fc===1?'':'s'}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
+        ${bgLine(m)}
+        <div class="chips">${arr(m.areas).map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</div>
       </div></div>`;
   });
   html += `</div>`;
@@ -571,8 +648,12 @@ function renderFamilies(){
     html += `<div class="row">
       <div class="avatar pine">${initials(f.name)}</div>
       <div class="rmain">
-        <div class="name">${f.name} <span class="pill ${f.status==='active'?'good':'wait'}">${f.status==='active'?'Active':'Lead'}</span></div>
-        <div class="meta">${f.neighborhood||''}${f.household?(' · '+f.household):''}${f.joined_at?(' · Joined '+fmtDay(f.joined_at)):''}</div>
+        <div class="name">${esc(f.name)} <span class="pill ${f.status==='active'?'good':'wait'}">${f.status==='active'?'Active':'Lead'}</span></div>
+        <div class="meta">${esc(f.neighborhood||'')}${f.joined_at?(' · Joined '+fmtDay(f.joined_at)):''}</div>
+        ${homeLine(f)?`<div class="meta" style="margin-top:var(--s1)">${homeLine(f)}</div>`:''}
+        <div class="meta" style="margin-top:var(--s1)">${f.card_last4
+          ? `▭ ${(f.card_brand||'Card').replace(/^./,c=>c.toUpperCase())} ending ${f.card_last4}`
+          : `<span style="color:var(--clay);font-weight:600">No card on file — visits cannot be charged</span>`}</div>
         <div class="chips">${planTag}</div>
       </div></div>`;
   });
@@ -581,7 +662,7 @@ function renderFamilies(){
 }
 
 function renderSchedule(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayLocal();
   const vis = [...state.visits].filter(v=>v.status!=='cancelled')
     .sort((a,b)=> (a.visit_date||'zzzz').localeCompare(b.visit_date||'zzzz') || (a.visit_time||'').localeCompare(b.visit_time||''));
   let html = `<button class="sched-add" onclick="openScheduler()">＋ Schedule a visit</button>`;
@@ -609,13 +690,15 @@ function renderSchedule(){
       html += `<div class="visit">
         <div class="vtime">${v.visit_time||'—'}</div>
         <div class="vpair"><div><b>${mom?momName(mom):'—'}</b><span class="arrow">→</span>${famName(v.family_id)}</div>
-          <div class="vt">${v.visit_date?fmtDay(v.visit_date)+' · ':''}${arr(v.areas).join(' · ')}${v.hours?(' · '+v.hours+' hrs'):''}${v.hours?(' · $'+Math.round(v.hours*(v.rate||RATE))):''}</div></div>
+          <div class="vt">${v.visit_date?fmtDay(v.visit_date)+' · ':''}${esc(arr(v.areas).join(' · '))}${v.hours?(' · '+v.hours+' hrs'):''}${v.hours?(' · $'+Math.round(v.hours*(v.rate||RATE))):''}</div></div>
         <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-end">
           <span class="pill ${overdue?'late':(v.status==='completed'||v.status==='confirmed'?'good':'wait')}">${overdue?'Overdue':v.status.charAt(0).toUpperCase()+v.status.slice(1)}</span>
           ${v.payment_status==='paid'     ? `<span class="pill good">Paid $${((v.amount_cents||0)/100).toFixed(0)}</span>` : ''}
           ${v.payment_status==='refunded' ? `<span class="pill wait">Refunded</span>` : ''}
+          ${v.payment_status==='needs_auth' ? `<span class="pill wait" title="Her bank asked her to approve it — she has a button in her app">Waiting on her bank</span>` : ''}
           ${v.payment_status==='failed'   ? `<span class="pill late" title="${(v.payment_error||'').replace(/"/g,'')}">Card declined</span>` : ''}
           ${v.payment_status==='paid'     ? `<button class="minibtn" onclick="refundVisit('${v.id}')">Refund</button>` : ''}
+          ${v.payment_status==='failed'   ? `<button class="minibtn done" onclick="retryCharge('${v.id}')">Try the card again</button>` : ''}
           ${open ? `<button class="minibtn done" onclick="completeVisit('${v.id}')">✓ Mark done</button>
                     <button class="minibtn" onclick="opResched('${v.id}')">Reschedule</button>
                     <button class="minibtn" onclick="opCancel('${v.id}')">Cancel</button>` : ''}
@@ -670,6 +753,15 @@ function windowParts(text){
   return [...out];
 }
 
+// Both scales count flights of stairs, so they compare directly.
+const FLIGHTS    = { 'No stairs':0, 'One flight':1, 'Two or more':2 };
+const WILL_CLIMB = { "I'd rather avoid stairs":0, 'One flight is fine':1, 'Stairs are fine':2 };
+
+function homeLine(f){
+  const bits = [f.home_type, f.stairs, f.household].filter(Boolean);
+  return bits.length ? bits.map(esc).join(' · ') : '';
+}
+
 function scoreMatch(m, req, fam){
   const reqAreas = arr(req.areas);
   const momAreas = arr(m.areas);
@@ -696,6 +788,24 @@ function scoreMatch(m, req, fam){
     else                warn.push(`Works ${hers.join(', ').toLowerCase() || 'unknown hours'} — they asked for ${wanted.join(' and ').toLowerCase()}`);
   }
 
+  // Stairs. Portland is full of triple-deckers, and most Marms are past
+  // sixty. Sending a woman who said she'd rather avoid stairs to a third-floor
+  // walk-up twice a week is how you lose her — so this is scored heavily and
+  // said plainly rather than left for the first visit to discover.
+  const flights = FLIGHTS[(fam && fam.stairs) || ''] ?? null;
+  const willDo  = WILL_CLIMB[m.stairs_ok || ''] ?? null;
+  let stairsGap = 0;
+  if(flights !== null && willDo !== null){
+    if(flights > willDo){
+      stairsGap = flights - willDo;
+      warn.push(`${esc(fam.stairs)} to their door — she said "${esc(m.stairs_ok)}"`);
+    } else if(flights > 0){
+      good.push(`Fine with the ${fam.stairs.toLowerCase()}`);
+    }
+  } else if(flights === null && m.stairs_ok){
+    warn.push('They have not said how many stairs — worth asking before you match');
+  }
+
   if(sameHood)      good.push(`Same neighborhood — ${m.neighborhood}`);
   else if(hoodOnly) warn.push(`Travels her neighborhood only (${m.neighborhood||'—'}) — they're in ${fam?fam.neighborhood:'—'}`);
   else if(m.travel_radius) good.push(`Travels ${m.travel_radius.toLowerCase()}`);
@@ -705,6 +815,7 @@ function scoreMatch(m, req, fam){
               + (timeHits.length * 6)
               + (sameHood ? 4 : 0)
               - (hoodOnly && !sameHood ? 8 : 0)
+              - (stairsGap * 12)                // a body limit, not a preference
               - (momFamilyCount(m.id) * 0.5);   // spread the load
 
   return { hits, good, warn, score };
@@ -726,8 +837,8 @@ function openMatch(rid){
     const clean = warn.length === 0;
     return `<div class="cand${clean?'':' imperfect'}">
       <div class="cand-top">
-        <div class="avatar">${initials(momName(m))}</div>
-        <div class="cinfo"><b>${momName(m)}</b><div class="cm">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} Mom${fc===1?'':'s'} now</div></div>
+        <div class="avatar">${initials(momNameRaw(m))}</div>
+        <div class="cinfo"><b>${momName(m)}</b><div class="cm">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${esc(m.neighborhood||'')} · ${fc} Mom${fc===1?'':'s'} now</div></div>
       </div>
       <div class="fitlist">
         ${good.map(g=>`<div class="fitrow ok">✓ ${g}</div>`).join('')}
@@ -771,8 +882,8 @@ function pickMom(mid){
   const r = state.requests.find(x=>x.id===activeReqId);
   const m = state.moms.find(x=>x.id===mid);
   window.__pickMid = mid;
-  const today = new Date().toISOString().slice(0,10);
-  $('#drTitle').textContent = `${momName(m)} → ${famName(r.family_id)}`;
+  const today = todayLocal();
+  $('#drTitle').textContent = `${momNameRaw(m)} → ${famNameRaw(r.family_id)}`;
   $('#drSub').textContent = 'Schedule their first visit';
   $('#drBody').innerHTML = `<div class="cand">
     <div class="schedrow"><label>First visit date</label><input type="date" id="svDate" min="${today}" oninput="showSeriesEnd()"></div>
@@ -797,13 +908,13 @@ async function confirmMatch(){
   const hours = parseFloat($('#svHours').value) || 3;
   closeDrawer();
   try{
-    await db.from('matches').insert({ request_id:r.id, mom_id:mid, family_id:r.family_id, status:'active' });
-    await db.from('requests').update({ status:'matched' }).eq('id', r.id);
+    await must(db.from('matches').insert({ request_id:r.id, mom_id:mid, family_id:r.family_id, status:'active' }), 'Recording the match');
+    await must(db.from('requests').update({ status:'matched' }).eq('id', r.id), 'Closing the request');
     const rep=($('#svRepeat')||{}).value||'one', cnt=($('#svCount')||{}).value||1;
     const dts=genDates(date,rep,cnt); const sid=(dts.length>1&&window.crypto&&crypto.randomUUID)?crypto.randomUUID():null;
-    for(const dt of dts){ await db.from('visits').insert({ mom_id:mid, family_id:r.family_id, areas:arr(r.areas), hours, rate:RATE, visit_date:dt, visit_time:time, status:'upcoming', series_id:sid }); }
+    for(const dt of dts){ await must(db.from('visits').insert({ mom_id:mid, family_id:r.family_id, areas:arr(r.areas), hours, rate:RATE, visit_date:dt, visit_time:time, status:'upcoming', series_id:sid }), 'Booking the visit'); }
     await loadAll(); renderAll();
-    toast(`${m.first_name} matched with ${famName(r.family_id)}${date?(' · '+fmtDay(date)):''}`);
+    toast(`${m.first_name} matched with ${famNameRaw(r.family_id)}${date?(' · '+fmtDay(date)):''}`);
   }catch(e){ toast('Could not save the match. Did the access rules run?'); }
 }
 
@@ -812,7 +923,7 @@ function openScheduler(){
   state.matches.forEach(mt=>{ if(mt.family_id&&mt.mom_id){ const k=mt.family_id+'|'+mt.mom_id; if(!seen.has(k)){seen.add(k);pairs.push({family_id:mt.family_id,mom_id:mt.mom_id});} }});
   state.visits.forEach(v=>{ if(v.family_id&&v.mom_id){ const k=v.family_id+'|'+v.mom_id; if(!seen.has(k)){seen.add(k);pairs.push({family_id:v.family_id,mom_id:v.mom_id});} }});
   window.__pairs = pairs;
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayLocal();
   $('#drTitle').textContent = 'Schedule a visit';
   $('#drSub').textContent = 'Book a visit for a matched Mom';
   if(!pairs.length){
@@ -846,7 +957,7 @@ async function createVisit(){
   try{
     const rep=($('#svRepeat')||{}).value||'one', cnt=($('#svCount')||{}).value||1;
     const dts=genDates(date,rep,cnt); const sid=(dts.length>1&&window.crypto&&crypto.randomUUID)?crypto.randomUUID():null;
-    for(const dt of dts){ await db.from('visits').insert({ mom_id:p.mom_id, family_id:p.family_id, areas, hours, rate:RATE, visit_date:dt, visit_time:time, status:'upcoming', series_id:sid }); }
+    for(const dt of dts){ await must(db.from('visits').insert({ mom_id:p.mom_id, family_id:p.family_id, areas, hours, rate:RATE, visit_date:dt, visit_time:time, status:'upcoming', series_id:sid }), 'Booking the visit'); }
     await loadAll(); renderAll();
     toast(`Visit scheduled${date?(' · '+fmtDay(date)):''}`);
   }catch(e){ toast('Could not schedule. Try again.'); }
@@ -858,22 +969,55 @@ function genDates(start, repeat, count){
   const step = repeat==='biweekly'?14:7;
   const n = Math.max(1, Math.min(parseInt(count)||1, 26));
   const out=[], d0=new Date(start+'T00:00:00');
-  for(let i=0;i<n;i++){ const d=new Date(d0.getTime()+i*step*86400000); out.push(d.toISOString().slice(0,10)); }
+  for(let i=0;i<n;i++){
+    const d=new Date(d0.getTime()+i*step*86400000);
+    out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  }
   return out;
 }
 async function opCancel(id){
   const reason = await askCancelVisit();
   if(reason===null) return;
-  try{ await db.from('visits').update({ status:'cancelled', cancel_reason:reason }).eq('id',id); await loadAll(); renderAll(); toast('Visit cancelled'); }
+  try{ await must(db.from('visits').update({ status:'cancelled', cancel_reason:reason }).eq('id',id), 'Cancelling the visit'); await loadAll(); renderAll(); toast('Visit cancelled'); }
   catch(e){ toast('Could not cancel.'); }
 }
 async function opResched(id){
   const when = await askReschedule();
   if(!when) return;
   const date=when.date, time=when.time;
-  try{ await db.from('visits').update({ visit_date:date, visit_time:time, status:'upcoming' }).eq('id',id); await loadAll(); renderAll(); toast('Visit rescheduled'); }
+  try{ await must(db.from('visits').update({ visit_date:date, visit_time:time, status:'upcoming' }).eq('id',id), 'Rescheduling'); await loadAll(); renderAll(); toast('Visit rescheduled'); }
   catch(e){ toast('Could not reschedule.'); }
 }
+async function retryCharge(id){
+  const v = state.visits.find(x=>x.id===id);
+  const fam = v ? famById(v.family_id) : null;
+  const amount = v ? Math.round((Number(v.hours)||0) * (Number(v.rate)||RATE)) : 0;
+
+  if(fam && !fam.payment_method_id){
+    toast(`${fam.name || 'That household'} still has no card on file.`);
+    return;
+  }
+  const ok = await askConfirm(
+    `Try the card again?`,
+    `${fam ? fam.name : 'This household'} · $${amount}. Last time: ${v?.payment_error || 'declined'}`,
+    `Charge $${amount}`);
+  if(!ok) return;
+
+  try{
+    toast('Trying the card…');
+    const s = (await db.auth.getSession()).data.session;
+    const r = await fetch('https://book.hiremarmee.com/.netlify/functions/stripe-charge-visit', {
+      method:'POST', headers:{ 'content-type':'text/plain' },
+      body: JSON.stringify({ token: s.access_token, visitId: id })
+    });
+    const d = await r.json().catch(()=>({}));
+    await loadAll(); renderAll();
+    if(!r.ok)                    toast(d.error || 'Declined again.');
+    else if(d.status === 'paid') toast(`Paid $${(d.amountCents/100).toFixed(2)}.`);
+    else                         toast(`Payment ${d.status}. Check Stripe.`);
+  }catch(e){ toast('Could not reach the payment service.'); }
+}
+
 async function refundVisit(id){
   const v = state.visits.find(x=>x.id===id);
   const fam = v ? famById(v.family_id) : null;
@@ -929,7 +1073,7 @@ async function completeVisit(id){
   try{
     // Write the real hours first — the charge function computes the amount
     // from the row, never from anything the browser sends.
-    await db.from('visits').update({ status:'completed', hours }).eq('id', id);
+    await must(db.from('visits').update({ status:'completed', hours }).eq('id', id), 'Marking the visit done');
   }catch(e){ toast('Could not update that visit.'); return; }
 
   // No card on file: it is still done, but say plainly that nothing was taken.
@@ -975,17 +1119,88 @@ async function completeVisit(id){
 async function advance(mid){
   const m = state.moms.find(x=>x.id===mid);
   const stage = m.vetting_stage||0;
-  try{
-    if(stage >= STAGES.length-1){
-      await db.from('moms').update({ status:'active', vetting_stage:4 }).eq('id', mid);
+  const atEnd = stage >= STAGES.length-1;
+
+  // ACTIVATION GATE. A green "Active" badge tells a Mom this person was
+  // checked. That must not be possible to click your way to.
+  if(atEnd){
+    if(m.bg_check_status !== 'clear'){
+      await askConfirm(
+        'Background check not recorded',
+        `${m.first_name} cannot go active until her background check is marked clear. Use "Background check cleared" on her row.`,
+        'I understand', false, 'Close');
+      return;
+    }
+    const ok = await askConfirm(
+      `Make ${m.first_name} active?`,
+      'She becomes visible for matching, and Moms will be told she is vetted. Only do this if every step above actually happened.',
+      'Yes, she is vetted');
+    if(!ok) return;
+
+    try{
+      await must(db.from('moms').update({ status:'active', vetting_stage:4 }).eq('id', mid), 'Activating her');
+      await logVetting(mid, 'Activated', null);
       await loadAll(); renderAll();
       toast(`${m.first_name} is active and ready to match`);
-    } else {
-      await db.from('moms').update({ status:'vetting', vetting_stage: stage+1 }).eq('id', mid);
-      await loadAll(); renderMoms(); buildNav();
-      toast(`${m.first_name}: ${STAGES[stage+1]} cleared`);
-    }
+    }catch(e){ toast('Could not save that change.'); }
+    return;
+  }
+
+  // Each stage records what was actually done, by whom.
+  const next = STAGES[stage+1];
+  const r = await openSheet({
+    title: `${next} — done?`,
+    sub: `${m.first_name}. What you write here is kept as the record.`,
+    bodyHTML: `<label for="shNote">What happened</label>`
+            + `<input id="shNote" placeholder="${next==='References' ? 'Spoke to Megan — glowing' : 'Brief note'}">`,
+    okLabel: `Yes, ${next.toLowerCase()} done`,
+    cancelLabel: 'Not yet'
+  });
+  if(!r.ok) return;
+
+  try{
+    await must(db.from('moms').update({ status:'vetting', vetting_stage: stage+1 }).eq('id', mid), 'Recording that step');
+    await logVetting(mid, next, r.values.shNote || null);
+    await loadAll(); renderMoms(); buildNav();
+    toast(`${m.first_name}: ${next} recorded`);
   }catch(e){ toast('Could not save that change. Did the access rules run?'); }
+}
+
+async function logVetting(momId, stage, note){
+  try{
+    const { data:{ user } } = await db.auth.getUser();
+    await must(db.from('vetting_log').insert({ mom_id: momId, stage, note, completed_by: user?.id || null }), 'Writing the vetting record');
+  }catch(e){
+    // Silently swallowing this would put us back where we started: a stage
+    // that moved with nothing recorded behind it. Say it out loud.
+    console.error('vetting log', e);
+    toast('The step was saved but the record was not written. Tell Mike.');
+  }
+}
+
+// The background check is the one step with a real outside answer. It gets
+// its own control rather than being a stage you can tab past.
+async function markBgClear(mid){
+  const m = state.moms.find(x=>x.id===mid);
+  const r = await openSheet({
+    title: 'Background check cleared',
+    sub: `${m.first_name}. Record the reference so this is auditable later.`,
+    bodyHTML: '<label for="shRef">Checkr report ID or reference</label>'
+            + '<input id="shRef" placeholder="e.g. Checkr 8f2c… or \'clear, 12 Aug\'">',
+    okLabel: 'Mark clear'
+  });
+  if(!r.ok) return;
+  if(!r.values.shRef){ toast('Add a reference so this can be checked later.'); return; }
+  try{
+    await must(db.from('moms').update({
+      bg_check_status: 'clear',
+      bg_checked_at: new Date().toISOString(),
+      bg_reference: r.values.shRef
+    }).eq('id', mid), 'Recording the background check');
+    await logVetting(mid, 'Background check', r.values.shRef);
+    await loadAll(); renderMoms();
+    toast(`${m.first_name}: background check recorded`);
+  }catch(e){ toast('Could not save that.'); }
 }
 
 /* ================= BOOT ================= */
@@ -1047,7 +1262,7 @@ async function askCancelVisit(){
   return r.ok ? (r.values.shReason||'') : null;
 }
 async function askReschedule(){
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayLocal();
   const r = await openSheet({
     title:'Pick a new time',
     sub:'We’ll let the other person know about the change.',
@@ -1102,3 +1317,9 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
+
+<!-- build: vetting-log 20260812T214858Z -->
+
+<!-- build: home-and-stairs 20260812T222712Z -->
+
+<!-- build: bugfix-pass 20260812T223812Z -->

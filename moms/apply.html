@@ -282,12 +282,22 @@
         <button class="chip" onclick="one(this)">No</button>
       </div>
     </div>
-    <div class="field" style="margin-bottom:0">
+    <div class="field">
       <label class="fl">Supplies &amp; equipment</label>
       <div class="chips" data-single>
         <button class="chip" onclick="one(this)">I bring my own</button>
         <button class="chip" onclick="one(this)">I'll use the Mom's</button>
         <button class="chip" onclick="one(this)">Either is fine</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="fl">Stairs</label>
+      <p class="lead" style="margin:0 0 var(--s3)">Plenty of homes here are walk-ups. Tell us
+        what suits you and we won't send you somewhere that doesn't.</p>
+      <div class="chips" data-single>
+        <button class="chip" onclick="one(this)">Stairs are fine</button>
+        <button class="chip" onclick="one(this)">One flight is fine</button>
+        <button class="chip" onclick="one(this)">I'd rather avoid stairs</button>
       </div>
     </div>
   </div>
@@ -467,12 +477,13 @@
     const driveTxt = safe(()=>txt(wc[3].querySelector('.chip.on')), '');
     const drives = driveTxt ? driveTxt.startsWith('Yes') : null;
     const supplies = safe(()=>txt(wc[4].querySelector('.chip.on')), '') || null;
+    const stairs_ok = safe(()=>txt(wc[5].querySelector('.chip.on')), '') || null;
     const references = safe(()=>[...S[4].querySelectorAll('.ref')].map(rf=>{
       const ins = rf.querySelectorAll('input');
       return { name:(ins[0]?.value||'').trim(), relationship:txt(rf.querySelector('.chip.on')), contact:(ins[1]?.value||'').trim() };
     }), []);
     const phone = val('#ph') || null;
-    return { areas, first_name, last_initial, neighborhood, experience, bio, days, times, travel, drives, supplies, references, phone };
+    return { areas, first_name, last_initial, neighborhood, experience, bio, days, times, travel, drives, supplies, stairs_ok, references, phone };
   }
 
   async function finish(){
@@ -493,7 +504,7 @@
         first_name: d.first_name, last_initial: d.last_initial, neighborhood: d.neighborhood,
         experience: d.experience, bio: d.bio, areas: d.areas, days: d.days, times: d.times,
         travel: d.travel, drives: (d.drives===null ? null : String(d.drives)),
-        supplies: d.supplies, phone: d.phone, references: d.references
+        supplies: d.supplies, stairs_ok: d.stairs_ok, phone: d.phone, references: d.references
       };
       const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('The server took too long to respond. Check your connection and try again.')), 15000));
       const { data: su, error } = await Promise.race([ db.auth.signUp({ email, password: pass, options: { data: meta, emailRedirectTo: 'https://moms.hiremarmee.com/' } }), timeout ]);

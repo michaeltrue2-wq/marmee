@@ -23,7 +23,7 @@ begin
   insert into moms (
     user_id, first_name, last_initial, neighborhood, experience, bio,
     areas, days_available, times_available, travel_radius, drives,
-    supplies_pref, phone, status, vetting_stage, bg_check_status
+    supplies_pref, stairs_ok, phone, status, vetting_stage, bg_check_status
   ) values (
     new.id,
     d->>'first_name', d->>'last_initial', d->>'neighborhood', d->>'experience', d->>'bio',
@@ -34,7 +34,7 @@ begin
     case when d->>'drives' = 'true' then true
          when d->>'drives' = 'false' then false
          else null end,
-    d->>'supplies', d->>'phone', 'new', 0, 'pending'
+    d->>'supplies', d->>'stairs_ok', d->>'phone', 'new', 0, 'pending'
   )
   returning id into new_mom_id;
 

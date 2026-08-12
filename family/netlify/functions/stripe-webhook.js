@@ -56,29 +56,51 @@ exports.handler = async (event) => {
                 || intent.payment_intent?.metadata?.marmee_visit_id
                 || null;
 
+  // supabase-js resolves with { data, error } rather than throwing, so every
+  // `await db...update()` below used to swallow its own failure: the catch
+  // never fired, the function returned 200, and Stripe recorded a successful
+  // delivery and never retried. Money taken, row still saying unpaid, and no
+  // trace. Throwing here is what makes the 500 — and Stripe's retry — real.
+  async function write(builder, what){
+    const { error } = await builder;
+    if(error) throw new Error(what + ': ' + error.message);
+  }
+
   try{
     switch(evt.type){
 
       case 'payment_intent.succeeded': {
         if(!visitId) break;
-        await db.from('visits').update({
+        const cents = intent.amount_received ?? intent.amount;
+        await write(db.from('visits').update({
           payment_status: 'paid',
-          amount_cents: intent.amount_received ?? intent.amount,
+          amount_cents: cents,
+          // The charge function writes this too; the webhook exists for the
+          // case where that write is the thing that failed, so it has to
+          // write the fee as well or platform revenue records as NULL.
+          platform_fee_cents: Math.round(cents * 0.15),
           stripe_payment_intent: intent.id,
           paid_at: new Date().toISOString(),
           payment_error: null
-        }).eq('id', visitId);
+        }).eq('id', visitId), 'mark paid');
         console.log('visit paid', visitId);
         break;
       }
 
       case 'payment_intent.payment_failed': {
         if(!visitId) break;
-        await db.from('visits').update({
+        // Stripe does not promise delivery order, and retries reorder further.
+        // The 3D Secure path emits payment_failed (authentication_required)
+        // and then succeeded once she approves. If failed arrived last it
+        // flipped a paid visit back to failed — which invites the operator to
+        // charge again, with a fresh attempt number and therefore a fresh
+        // idempotency key. That is a real second charge. A paid visit is
+        // final here.
+        await write(db.from('visits').update({
           payment_status: 'failed',
           stripe_payment_intent: intent.id,
           payment_error: intent.last_payment_error?.message || 'The card was declined.'
-        }).eq('id', visitId);
+        }).eq('id', visitId).neq('payment_status', 'paid'), 'mark failed');
         console.log('visit payment failed', visitId);
         break;
       }
@@ -88,10 +110,23 @@ exports.handler = async (event) => {
         // how the console stays honest about money that went back.
         const pi = intent.payment_intent;
         if(!pi) break;
-        await db.from('visits').update({
+
+        // charge.refunded fires for partial refunds as well. Booking a $10
+        // goodwill refund on a $140 visit as fully refunded loses $130.
+        const refunded = Number(intent.amount_refunded ?? 0);
+        const charged  = Number(intent.amount ?? 0);
+        if(charged && refunded < charged){
+          await write(db.from('visits').update({
+            payment_error: `Partly refunded — $${(refunded/100).toFixed(2)} of $${(charged/100).toFixed(2)}. Check Stripe.`
+          }).eq('stripe_payment_intent', typeof pi === 'string' ? pi : pi.id), 'note partial refund');
+          console.log('partial refund', pi, refunded, 'of', charged);
+          break;
+        }
+
+        await write(db.from('visits').update({
           payment_status: 'refunded',
           payment_error: null
-        }).eq('stripe_payment_intent', typeof pi === 'string' ? pi : pi.id);
+        }).eq('stripe_payment_intent', typeof pi === 'string' ? pi : pi.id), 'mark refunded');
         console.log('visit refunded', pi);
         break;
       }
@@ -99,9 +134,9 @@ exports.handler = async (event) => {
       case 'charge.dispute.created': {
         const pi = intent.payment_intent;
         if(!pi) break;
-        await db.from('visits').update({
+        await write(db.from('visits').update({
           payment_error: 'Disputed by the cardholder — check Stripe.'
-        }).eq('stripe_payment_intent', typeof pi === 'string' ? pi : pi.id);
+        }).eq('stripe_payment_intent', typeof pi === 'string' ? pi : pi.id), 'note dispute');
         console.log('dispute opened', pi);
         break;
       }

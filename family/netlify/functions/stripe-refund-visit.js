@@ -53,10 +53,21 @@ exports.handler = async (event) => {
 
     // The charge.refunded webhook will also set this. Writing it here too
     // means the console updates immediately rather than whenever Stripe calls.
-    await db.from('visits').update({
+    // supabase-js returns its error rather than throwing, so it has to be
+    // read — otherwise Stripe refunds the money and the console keeps
+    // showing the visit as Paid, with no sign anything went wrong.
+    const { error: updErr } = await db.from('visits').update({
       payment_status: 'refunded',
       payment_error: null
     }).eq('id', visit.id);
+
+    if(updErr){
+      return json(500, {
+        error: 'The refund went through in Stripe but we could not record it here. The visit will still show as paid until the Stripe webhook catches up.',
+        refundId: refund.id,
+        needsReconcile: true
+      });
+    }
 
     return json(200, {
       status: 'refunded',

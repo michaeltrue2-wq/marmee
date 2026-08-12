@@ -41,6 +41,18 @@
   .gate-err{display:none;color:var(--clay);font-weight:600;font-size:var(--t-sm);text-align:center;margin-top:var(--s3)}
   .gate-apply{margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--ivory-dim);text-align:center;font-size:var(--t-md);color:var(--muted)}
   .gate-apply a{color:var(--honey-deep);font-weight:700;text-decoration:none}.gate-apply a:hover{text-decoration:underline}
+  /* The gate is the front door for people who have never heard of us, not
+     just a lock for people who already have an account. The invitation goes
+     first and gets the honey button; signing in sits below it. */
+  .gate-cta{display:block;width:100%;box-sizing:border-box;background:var(--honey);color:var(--pine-deep);
+    border:none;padding:var(--s4);border-radius:100px;font-family:inherit;font-weight:700;font-size:var(--t-md);
+    text-align:center;text-decoration:none;min-height:52px;line-height:1.4;cursor:pointer;margin-bottom:var(--s5)}
+  .gate-cta:hover{background:var(--honey-soft)}
+  .gate-div{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5);
+    color:var(--muted);font-size:var(--t-sm);font-weight:600}
+  .gate-div::before,.gate-div::after{content:'';flex:1;height:1px;background:var(--ivory-dim)}
+  .gate-btn.secondary{background:var(--pine);color:var(--ivory)}
+  .gate-btn.secondary:hover{background:var(--pine-deep)}
   /* app */
   .app{display:none}.app.on{display:block}
   .hdr{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s2)}
@@ -69,6 +81,16 @@
   .prow .pl{flex:1}.prow .pl b{display:block}.prow .pl span{color:var(--muted);font-size:var(--t-sm)}
   .prow .arr{color:var(--muted)}
   .req{color:var(--muted);font-size:var(--t-md)}
+
+  /* photos */
+  .phgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin-top:var(--s2)}
+  .phcell{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--ivory-dim);border:1px solid var(--line)}
+  .phcell img{width:100%;height:100%;object-fit:cover;display:block}
+  .phcell .phdel{position:absolute;top:var(--s1);right:var(--s1);background:rgba(21,32,26,.72);color:#fff;border:none;border-radius:100px;width:28px;height:28px;font-size:var(--t-sm);cursor:pointer;line-height:1}
+  .phadd{aspect-ratio:1;border-radius:14px;border:1.5px dashed var(--line);background:#fff;color:var(--muted);font-family:inherit;font-size:var(--t-sm);font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s1)}
+  .phadd:hover{border-color:var(--honey);color:var(--pine)}
+  .avawrap{position:relative;cursor:pointer}
+  .avawrap .avaedit{position:absolute;bottom:-2px;right:-2px;background:var(--honey);color:var(--pine-deep);border:2px solid var(--ivory);border-radius:100px;font-size:10px;font-weight:700;padding:2px 6px}
   .buildtag{position:fixed;bottom:6px;right:9px;font-size:var(--t-xs);color:var(--honey-deep);opacity:.5;font-family:monospace;z-index:9999}
 
   .chat{position:fixed;inset:0;z-index:300;background:var(--ivory);display:none;flex-direction:column}
@@ -163,22 +185,28 @@
 <div class="gate" id="gate">
   <div class="gate-card">
     <div class="gate-logo"><span class="dot"></span>Marmee</div>
-    <div class="gate-sub">Sign in to see your match and visits.</div>
+    <div class="gate-sub">An experienced woman to help with the house a few hours a week,
+      so your evenings are yours again.</div>
+
+    <a class="gate-cta" href="family-request.html">Request a Marm &rarr;</a>
+
+    <div class="gate-div">Already signed up?</div>
+
     <label for="email">Email</label>
     <input id="email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')document.getElementById('pass').focus()">
     <label for="pass">Password</label>
     <input id="pass" type="password" placeholder="Your password" onkeydown="if(event.key==='Enter')login()">
-    <button class="gate-btn" id="loginBtn" onclick="login()">Sign in</button>
+    <button class="gate-btn secondary" id="loginBtn" onclick="login()">Sign in</button>
     <div class="gate-err" id="gateErr"></div>
     <button class="resend-link" id="resendBtn" onclick="resendConfirm()">Didn’t get the confirmation email? Send it again</button>
-    <div class="gate-apply">Need help around the house? <a href="family-request.html">Request a Marm →</a></div>
   </div>
 </div>
 
 <!-- APP -->
 <div class="app" id="app"><div class="wrap">
   <div class="hdr">
-    <div class="ava" id="ava">·</div>
+    <div class="avawrap" onclick="pickAvatar()"><div class="ava" id="ava">·</div><span class="avaedit">edit</span></div>
+    <input type="file" id="avaFile" accept="image/*" style="display:none" onchange="onAvatarPicked(this)">
     <div><div class="greet" id="greet">Welcome</div><div class="sub" id="sub"></div></div>
   </div>
   <div id="body"></div>
@@ -326,6 +354,29 @@
         <div class="sub2">We're hand-picking an experienced Marm near you. We'll be in touch soon — hang tight.</div></div>`;
     }
 
+    // Her bank wants her to approve. The card is fine, so do not send her
+    // off to replace it — give her the one button that actually finishes it.
+    const needsAuth = myVisits.filter(v=>v.payment_status==='needs_auth' && v.stripe_client_secret);
+    if(needsAuth.length){
+      const v0 = needsAuth[0];
+      html += `<div class="card" style="border-color:var(--honey);background:rgba(200,153,58,.07)">
+        <b>Your bank needs you to approve a payment</b>
+        <div class="req" style="margin-top:var(--s1)">$${((v0.amount_cents||0)/100).toFixed(2).replace(/\.00$/,'')} for your visit on ${fmtDay(v0.visit_date)}.
+        Your card is fine — this is just your bank checking it's really you.</div>
+        <button class="actbtn" style="margin-top:var(--s3)" onclick="approvePayment('${v0.id}')">Approve the payment</button>
+      </div>`;
+    }
+
+    const declined = myVisits.filter(v=>v.payment_status==='failed');
+    if(declined.length){
+      html += `<div class="card" style="border-color:var(--clay);background:rgba(157,69,38,.05)">
+        <b style="color:var(--clay)">A payment didn't go through</b>
+        <div class="req" style="margin-top:var(--s1)">Your card was declined for ${declined.length} visit${declined.length===1?'':'s'}.
+        Update your card below and we'll try again — nothing else for you to do.</div>
+        <button class="actbtn" style="margin-top:var(--s3)" onclick="openCard()">Update my card</button>
+      </div>`;
+    }
+
     html += `<div class="section-t">Upcoming visits</div>`;
     if(mom){
       html += `<button class="bookbtn" onclick="toggleBookForm()">＋ Book a visit with ${mom.first_name}</button>
@@ -382,6 +433,39 @@
     }
 
     $('#body').innerHTML = html;
+
+    // Photos of the home, for the Marm who is coming. Deliberately after
+    // the match — nobody browses these.
+    html += `<div class="section-t">Your photos</div>
+      <div class="req">Photos of your home — the kitchen, where things live, the back door.
+        They help her know what she's walking into on the first day.
+        Shown only to the Marm you're matched with.</div>
+      <div class="req" style="color:var(--clay);font-weight:600;margin-top:var(--s2)">Please don't upload photos of your children.</div>
+      <div class="phgrid" id="phGrid"></div>
+      <input type="file" id="homeFile" accept="image/*" style="display:none" onchange="onHomePicked(this)">`;
+
+    // What she has actually been charged. Stripe emails a receipt too, but
+    // the app should be able to answer "what did I pay?" on its own.
+    const charged = myVisits
+      .filter(v=>['paid','refunded'].includes(v.payment_status))
+      .sort((a,b)=>(b.paid_at||b.visit_date||'').localeCompare(a.paid_at||a.visit_date||''));
+    if(charged.length){
+      const total = charged.filter(v=>v.payment_status==='paid')
+        .reduce((s,v)=>s+(Number(v.amount_cents)||0)/100,0);
+      let ph = `<div class="section-t2">Payments</div>`;
+      charged.forEach(v=>{
+        const amt = ((Number(v.amount_cents)||0)/100).toFixed(2).replace(/\.00$/,'');
+        const refunded = v.payment_status==='refunded';
+        ph += `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+          <div><b>${fmtDay(v.visit_date)}</b><div class="req">${v.hours||0} hours${refunded?' · refunded':''}</div></div>
+          <div style="font-family:'Fraunces',serif;font-size:var(--t-lg);color:${refunded?'var(--muted)':'var(--pine)'};${refunded?'text-decoration:line-through':''}">$${amt}</div>
+        </div>`;
+      });
+      ph += `<div class="req" style="text-align:right;margin-top:calc(-1 * var(--s2))">Paid so far · <b>$${total.toFixed(2).replace(/\.00$/,'')}</b></div>`;
+      $('#body').insertAdjacentHTML('beforeend', ph);
+    }
+
+    paintAvatar(); loadHomePhotos();
 
     const req=myReqs[0];
     $('#reqSummary').textContent = req ? (arr(req.areas).join(', ')+(req.frequency?(' · '+req.frequency):'')) : 'No request on file';
@@ -509,6 +593,57 @@
     catch(e){ inp.value=body; }
   }
 
+
+/* ---- Photos -------------------------------------------------------------
+   Private bucket. Files are only reachable through a signed URL, and the
+   policy only issues one to the owner, an operator, or the person on the
+   other side of a match.
+
+   Phones produce 4MB photos. Downscaling in the browser before upload keeps
+   it quick on a weak connection and keeps storage small.                   */
+const _urlCache = {};
+
+async function photoUrl(path){
+  if(!path) return null;
+  if(_urlCache[path]) return _urlCache[path];
+  try{
+    const { data, error } = await db.storage.from('photos').createSignedUrl(path, 3600);
+    if(error) return null;
+    _urlCache[path] = data.signedUrl;
+    return data.signedUrl;
+  }catch(e){ return null; }
+}
+
+function downscale(file, maxPx){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width:w, height:h } = img;
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('Could not read that image.')), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file is not an image we can read.')); };
+    img.src = url;
+  });
+}
+
+async function uploadPhoto(file, path, maxPx){
+  if(!/^image\//.test(file.type)) throw new Error('Please choose a photo.');
+  const blob = await downscale(file, maxPx || 1400);
+  const { error } = await db.storage.from('photos').upload(path, blob, {
+    contentType: 'image/jpeg', upsert: true
+  });
+  if(error) throw new Error(error.message || 'Could not upload that photo.');
+  delete _urlCache[path];
+  return path;
+}
+
 /* ---- Card on file (Stripe) --------------------------------------------
    setup-intent -> Stripe Elements -> save-card. The secret key stays on
    Netlify; this only ever sees a publishable key and a client secret. */
@@ -568,6 +703,102 @@ async function openCard(){
 function closeCard(){
   document.getElementById('cardScrim').classList.remove('on');
   document.getElementById('cardSheet').classList.remove('on');
+}
+
+// Finishes a payment the bank asked her to approve. Stripe shows its own
+// 3-D Secure step; the webhook marks the visit paid when it clears.
+let _homePaths = [];
+
+function pickAvatar(){ document.getElementById('avaFile').click(); }
+function pickHome(){ document.getElementById('homeFile').click(); }
+
+async function onAvatarPicked(input){
+  const f = input.files && input.files[0]; input.value='';
+  if(!f || !me) return;
+  try{
+    toast('Uploading…');
+    const path = `families/${me.id}/avatar.jpg`;
+    await uploadPhoto(f, path, 600);
+    await db.from('families').update({ avatar_path: path }).eq('id', me.id);
+    me.avatar_path = path;
+    await paintAvatar();
+    toast('Photo updated.');
+  }catch(e){ toast(e.message || 'Could not upload that photo.'); }
+}
+
+async function paintAvatar(){
+  const el = document.getElementById('ava'); if(!el || !me) return;
+  const url = await photoUrl(me.avatar_path);
+  if(url){ el.style.cssText = 'background-image:url('+url+');background-size:cover;background-position:center;color:transparent'; }
+}
+
+async function loadHomePhotos(){
+  if(!me) return;
+  try{
+    const { data } = await db.storage.from('photos').list(`families/${me.id}/home`, { limit: 12 });
+    _homePaths = (data||[]).filter(o=>o.name).map(o=>`families/${me.id}/home/${o.name}`);
+  }catch(e){ _homePaths = []; }
+  await paintHomePhotos();
+}
+
+async function paintHomePhotos(){
+  const grid = document.getElementById('phGrid'); if(!grid) return;
+  const cells = await Promise.all(_homePaths.map(async p=>{
+    const url = await photoUrl(p);
+    return url ? `<div class="phcell"><img src="${url}" alt=""><button class="phdel" onclick="removeHomePhoto('${p}')" aria-label="Remove photo">×</button></div>` : '';
+  }));
+  const canAdd = _homePaths.length < 9;
+  grid.innerHTML = cells.join('') +
+    (canAdd ? `<button class="phadd" onclick="pickHome()"><span style="font-size:var(--t-2xl)">+</span>Add a photo</button>` : '');
+}
+
+async function onHomePicked(input){
+  const f = input.files && input.files[0]; input.value='';
+  if(!f || !me) return;
+  try{
+    toast('Uploading…');
+    const path = `families/${me.id}/home/${Date.now()}.jpg`;
+    await uploadPhoto(f, path, 1400);
+    _homePaths.push(path);
+    await paintHomePhotos();
+    toast('Photo added.');
+  }catch(e){ toast(e.message || 'Could not upload that photo.'); }
+}
+
+async function removeHomePhoto(path){
+  const ok = await askConfirm('Remove this photo?', 'Your Marm will no longer see it.', 'Remove', true);
+  if(!ok) return;
+  try{
+    await db.storage.from('photos').remove([path]);
+    _homePaths = _homePaths.filter(p=>p!==path);
+    await paintHomePhotos();
+    toast('Photo removed.');
+  }catch(e){ toast('Could not remove that photo.'); }
+}
+
+async function approvePayment(visitId){
+  const v = myVisits.find(x=>x.id===visitId);
+  if(!v || !v.stripe_client_secret){ toast('Nothing to approve.'); return; }
+  try{
+    if(!_stripe){
+      const s0=(await db.auth.getSession()).data.session;
+      const r0=await fetch('/.netlify/functions/stripe-setup-intent',{
+        method:'POST', headers:{'content-type':'application/json','authorization':'Bearer '+s0.access_token}, body:'{}'
+      });
+      const d0=await r0.json();
+      if(!r0.ok) throw new Error(d0.error||'Could not reach the payment service.');
+      _stripe = Stripe(d0.publishableKey);
+    }
+    toast('Opening your bank…');
+    const { error, paymentIntent } = await _stripe.confirmCardPayment(v.stripe_client_secret);
+    if(error) { toast(error.message || 'That did not go through.'); return; }
+    if(paymentIntent && paymentIntent.status === 'succeeded'){
+      toast('Thank you — payment approved.');
+      await reloadVisits();
+    } else {
+      toast(`Payment ${paymentIntent ? paymentIntent.status : 'incomplete'}.`);
+    }
+  }catch(e){ toast(e.message || 'Could not complete that payment.'); }
 }
 
 async function saveCard(){
@@ -756,3 +987,5 @@ async function resendConfirm(){
 </body>
 </html>
 <!-- rev: elements layout tabs -->
+
+<!-- build: home-and-stairs 20260812T222712Z -->
