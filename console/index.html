@@ -612,8 +612,10 @@ function renderSchedule(){
           <div class="vt">${v.visit_date?fmtDay(v.visit_date)+' · ':''}${arr(v.areas).join(' · ')}${v.hours?(' · '+v.hours+' hrs'):''}${v.hours?(' · $'+Math.round(v.hours*(v.rate||RATE))):''}</div></div>
         <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-end">
           <span class="pill ${overdue?'late':(v.status==='completed'||v.status==='confirmed'?'good':'wait')}">${overdue?'Overdue':v.status.charAt(0).toUpperCase()+v.status.slice(1)}</span>
-          ${v.payment_status==='paid'   ? `<span class="pill good">Paid $${((v.amount_cents||0)/100).toFixed(0)}</span>` : ''}
-          ${v.payment_status==='failed' ? `<span class="pill late" title="${(v.payment_error||'').replace(/"/g,'')}">Card declined</span>` : ''}
+          ${v.payment_status==='paid'     ? `<span class="pill good">Paid $${((v.amount_cents||0)/100).toFixed(0)}</span>` : ''}
+          ${v.payment_status==='refunded' ? `<span class="pill wait">Refunded</span>` : ''}
+          ${v.payment_status==='failed'   ? `<span class="pill late" title="${(v.payment_error||'').replace(/"/g,'')}">Card declined</span>` : ''}
+          ${v.payment_status==='paid'     ? `<button class="minibtn" onclick="refundVisit('${v.id}')">Refund</button>` : ''}
           ${open ? `<button class="minibtn done" onclick="completeVisit('${v.id}')">✓ Mark done</button>
                     <button class="minibtn" onclick="opResched('${v.id}')">Reschedule</button>
                     <button class="minibtn" onclick="opCancel('${v.id}')">Cancel</button>` : ''}
@@ -872,6 +874,32 @@ async function opResched(id){
   try{ await db.from('visits').update({ visit_date:date, visit_time:time, status:'upcoming' }).eq('id',id); await loadAll(); renderAll(); toast('Visit rescheduled'); }
   catch(e){ toast('Could not reschedule.'); }
 }
+async function refundVisit(id){
+  const v = state.visits.find(x=>x.id===id);
+  const fam = v ? famById(v.family_id) : null;
+  const amount = v ? ((v.amount_cents||0)/100).toFixed(2).replace(/\.00$/,'') : '0';
+
+  const ok = await askConfirm(
+    `Refund $${amount}?`,
+    `${fam ? fam.name : 'This household'} gets the full amount back. This cannot be undone from here.`,
+    `Refund $${amount}`, true);
+  if(!ok) return;
+
+  try{
+    const s = (await db.auth.getSession()).data.session;
+    const r = await fetch('https://book.hiremarmee.com/.netlify/functions/stripe-refund-visit', {
+      method:'POST',
+      headers:{ 'content-type':'text/plain' },
+      body: JSON.stringify({ token: s.access_token, visitId: id })
+    });
+    const d = await r.json().catch(()=>({}));
+    await loadAll(); renderAll();
+    if(!r.ok)                      toast(d.error || 'Could not refund that visit.');
+    else if(d.alreadyRefunded)     toast('That visit was already refunded.');
+    else                           toast(`Refunded $${(d.amountCents/100).toFixed(2)}.`);
+  }catch(e){ toast('Could not refund that visit.'); }
+}
+
 async function completeVisit(id){
   const v = state.visits.find(x=>x.id===id);
   const fam = v ? famById(v.family_id) : null;
