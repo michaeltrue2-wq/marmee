@@ -187,6 +187,8 @@
   .schedrow label{display:block;font-weight:600;font-size:var(--t-sm);margin-bottom:var(--s1);color:var(--pine)}
   .schedrow input,.schedrow select{width:100%;padding:var(--s3) var(--s3);border:1.5px solid var(--line);border-radius:11px;font-family:inherit;font-size:var(--t-md);background:#fff;color:var(--ink)}
   .schedrow input:focus,.schedrow select:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .timechip{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:var(--s2) var(--s3);font-family:inherit;font-size:var(--t-sm);font-weight:600;cursor:pointer;min-height:36px}
+  .timechip:hover{border-color:var(--honey);background:#fff}
   .minibtn{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:var(--s2) var(--s3);font-family:inherit;font-size:var(--t-sm);font-weight:600;cursor:pointer;white-space:nowrap}
   .minibtn:hover{border-color:var(--honey)}
   .minibtn.done{background:var(--pine);color:var(--ivory);border-color:var(--pine)}
@@ -643,6 +645,30 @@ function openMatch(rid){
   }).join('') : `<div class="empty"><b>No active Marms yet</b>Approve a Marm in the Marms tab first.</div>`;
   $('#scrim').classList.add('open'); $('#drawer').classList.add('open');
 }
+function setTime(v){ const el=$('#svTime'); if(el){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); } showSeriesEnd(); }
+
+// Turn 24h "09:00" into "9:00a" for display, matching how visits read elsewhere.
+function to12h(v){
+  if(!v) return null;
+  const [H,M] = v.split(':').map(Number);
+  const ampm = H < 12 ? 'a' : 'p';
+  const h12  = H % 12 === 0 ? 12 : H % 12;
+  return `${h12}:${String(M).padStart(2,'0')}${ampm}`;
+}
+
+// "4 visits · through Sep 10" — so a number means something.
+function showSeriesEnd(){
+  const hint=$('#svCountHint'); if(!hint) return;
+  const rep=($('#svRepeat')||{}).value||'one';
+  const n=parseInt(($('#svCount')||{}).value||'1',10);
+  const d0=($('#svDate')||{}).value;
+  if(rep==='one' || !d0 || !n){ hint.textContent=''; return; }
+  const step = rep==='biweekly' ? 14 : 7;
+  const end = new Date(new Date(d0+'T12:00:00').getTime() + (n-1)*step*86400000);
+  const weeks = Math.round((n-1)*step/7);
+  hint.textContent = `${n} visit${n===1?'':'s'} · through ${end.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · about ${weeks} week${weeks===1?'':'s'}`;
+}
+
 function closeDrawer(){ $('#scrim').classList.remove('open'); $('#drawer').classList.remove('open'); }
 
 function pickMom(mid){
@@ -653,11 +679,11 @@ function pickMom(mid){
   $('#drTitle').textContent = `${momName(m)} → ${famName(r.family_id)}`;
   $('#drSub').textContent = 'Schedule their first visit';
   $('#drBody').innerHTML = `<div class="cand">
-    <div class="schedrow"><label>First visit date</label><input type="date" id="svDate" min="${today}"></div>
-    <div class="schedrow"><label>Time</label><input type="text" id="svTime" placeholder="9:00 AM"></div>
+    <div class="schedrow"><label>First visit date</label><input type="date" id="svDate" min="${today}" oninput="showSeriesEnd()"></div>
+    <div class="schedrow"><label>Time</label><input type="time" id="svTime" step="900"><div class="chips" style="margin-top:var(--s2)"><button type="button" class="timechip" onclick="setTime('08:00')">8:00a</button><button type="button" class="timechip" onclick="setTime('09:00')">9:00a</button><button type="button" class="timechip" onclick="setTime('10:00')">10:00a</button><button type="button" class="timechip" onclick="setTime('12:00')">12:00p</button><button type="button" class="timechip" onclick="setTime('13:00')">1:00p</button><button type="button" class="timechip" onclick="setTime('15:00')">3:00p</button><button type="button" class="timechip" onclick="setTime('17:00')">5:00p</button></div></div>
     <div class="schedrow"><label>Hours</label><input type="number" id="svHours" value="3" min="1" step="0.5"></div>
-    <div class="schedrow"><label>Repeat</label><select id="svRepeat" onchange="document.getElementById('svCountRow').style.display=this.value==='one'?'none':'block'"><option value="one">One-time</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option></select></div>
-    <div class="schedrow" id="svCountRow" style="display:none"><label>How many visits</label><input type="number" id="svCount" value="4" min="1" max="26"></div>
+    <div class="schedrow"><label>Repeat</label><select id="svRepeat" onchange="document.getElementById('svCountRow').style.display=this.value==='one'?'none':'block';showSeriesEnd()"><option value="one">One-time</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option></select></div>
+    <div class="schedrow" id="svCountRow" style="display:none"><label>How many visits</label><input type="number" id="svCount" value="4" min="1" max="26" oninput="showSeriesEnd()"><div class="meta" id="svCountHint" style="margin-top:var(--s1)"></div></div>
     <button class="act honey" style="width:100%" onclick="confirmMatch()">Match &amp; schedule visits</button>
     <button class="act ghost" style="width:100%;margin-top:8px" onclick="openMatch(activeReqId)">← Back to Marms</button>
   </div>`;
@@ -668,7 +694,10 @@ async function confirmMatch(){
   const r = state.requests.find(x=>x.id===activeReqId);
   const m = state.moms.find(x=>x.id===mid);
   const date = $('#svDate').value || null;
-  const time = ($('#svTime').value||'').trim() || null;
+  if(!date){ toast('Pick a date for the first visit.'); return; }
+  const rawTime = ($('#svTime').value||'').trim();
+  if(!rawTime){ toast('Pick a time — the Marm needs to know when to arrive.'); return; }
+  const time = to12h(rawTime);
   const hours = parseFloat($('#svHours').value) || 3;
   closeDrawer();
   try{
@@ -696,11 +725,11 @@ function openScheduler(){
     const opts = pairs.map((p,i)=>`<option value="${i}">${famName(p.family_id)} → ${momName(state.moms.find(m=>m.id===p.mom_id)||{first_name:'—'})}</option>`).join('');
     $('#drBody').innerHTML = `<div class="cand">
       <div class="schedrow"><label>Mom &amp; Marm</label><select id="svPair">${opts}</select></div>
-      <div class="schedrow"><label>Date</label><input type="date" id="svDate" min="${today}"></div>
-      <div class="schedrow"><label>Time</label><input type="text" id="svTime" placeholder="9:00 AM"></div>
+      <div class="schedrow"><label>Date</label><input type="date" id="svDate" min="${today}" oninput="showSeriesEnd()"></div>
+      <div class="schedrow"><label>Time</label><input type="time" id="svTime" step="900"><div class="chips" style="margin-top:var(--s2)"><button type="button" class="timechip" onclick="setTime('08:00')">8:00a</button><button type="button" class="timechip" onclick="setTime('09:00')">9:00a</button><button type="button" class="timechip" onclick="setTime('10:00')">10:00a</button><button type="button" class="timechip" onclick="setTime('12:00')">12:00p</button><button type="button" class="timechip" onclick="setTime('13:00')">1:00p</button><button type="button" class="timechip" onclick="setTime('15:00')">3:00p</button><button type="button" class="timechip" onclick="setTime('17:00')">5:00p</button></div></div>
       <div class="schedrow"><label>Hours</label><input type="number" id="svHours" value="3" min="1" step="0.5"></div>
-      <div class="schedrow"><label>Repeat</label><select id="svRepeat" onchange="document.getElementById('svCountRow').style.display=this.value==='one'?'none':'block'"><option value="one">One-time</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option></select></div>
-      <div class="schedrow" id="svCountRow" style="display:none"><label>How many visits</label><input type="number" id="svCount" value="4" min="1" max="26"></div>
+      <div class="schedrow"><label>Repeat</label><select id="svRepeat" onchange="document.getElementById('svCountRow').style.display=this.value==='one'?'none':'block';showSeriesEnd()"><option value="one">One-time</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option></select></div>
+      <div class="schedrow" id="svCountRow" style="display:none"><label>How many visits</label><input type="number" id="svCount" value="4" min="1" max="26" oninput="showSeriesEnd()"><div class="meta" id="svCountHint" style="margin-top:var(--s1)"></div></div>
       <button class="act honey" style="width:100%" onclick="createVisit()">Schedule visit(s)</button>
     </div>`;
   }
@@ -710,7 +739,10 @@ function openScheduler(){
 async function createVisit(){
   const pairs = window.__pairs||[]; const p = pairs[parseInt($('#svPair').value)||0]; if(!p) return;
   const date = $('#svDate').value || null;
-  const time = ($('#svTime').value||'').trim() || null;
+  if(!date){ toast('Pick a date for the first visit.'); return; }
+  const rawTime = ($('#svTime').value||'').trim();
+  if(!rawTime){ toast('Pick a time — the Marm needs to know when to arrive.'); return; }
+  const time = to12h(rawTime);
   const hours = parseFloat($('#svHours').value) || 3;
   const req = state.requests.find(r=>r.family_id===p.family_id);
   const areas = req ? arr(req.areas) : [];
