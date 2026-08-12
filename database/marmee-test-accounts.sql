@@ -37,7 +37,7 @@ insert into moms (
 )
 select
   u.id,
-  'Master', 'M',
+  'Bev', 'L',
   'Munjoy Hill',
   'Kids are grown',
   'Test account for walkthroughs and QA. Not a real Marm.',
@@ -68,7 +68,7 @@ with u as (
 insert into families (user_id, name, neighborhood, household, status, joined_at)
 select
   u.id,
-  'Master Test Household',
+  'The Wallaces',
   'West End',
   'Two kids, 4 and 7',
   'active',

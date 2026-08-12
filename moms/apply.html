@@ -138,6 +138,27 @@
   .next:disabled{opacity:0.45;cursor:default}
   .skip{background:none;border:none;color:var(--muted);font-family:inherit;font-size:var(--t-md);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:var(--s3) var(--s1)}
   .skip:hover{color:var(--pine)}
+
+  /* ---- ST-1: in-app sheet, replacing native alert/confirm/prompt --------
+     Native dialogs render as "moms.hiremarmee.com says", cannot be styled,
+     and look like the browser warnings people are told to distrust.        */
+  .sheet-scrim{position:fixed;inset:0;background:rgba(21,32,26,.5);z-index:400;opacity:0;pointer-events:none;transition:opacity .2s}
+  .sheet-scrim.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);width:100%;max-width:460px;background:var(--ivory);border-radius:22px 22px 0 0;padding:var(--s6) var(--s5) calc(var(--s6) + env(safe-area-inset-bottom,0px));z-index:401;transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+  .sheet.on{transform:translate(-50%,0)}
+  .sheet h3{font-family:'Fraunces',Georgia,serif;font-size:var(--t-xl);color:var(--pine);margin-bottom:var(--s2)}
+  .sheet .sheet-sub{color:var(--muted);font-size:var(--t-sm);margin-bottom:var(--s4)}
+  .sheet label{display:block;font-weight:600;font-size:var(--t-sm);margin-bottom:var(--s2);color:var(--pine)}
+  .sheet input,.sheet textarea{width:100%;padding:var(--s3) var(--s4);border:1.5px solid var(--line);border-radius:12px;font-family:inherit;font-size:var(--t-md);background:#fff;color:var(--ink);margin-bottom:var(--s4)}
+  .sheet input:focus,.sheet textarea:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .sheet-btns{display:flex;gap:var(--s3)}
+  .sheet-btns button{flex:1;border:none;border-radius:100px;padding:var(--s3);font-family:inherit;font-weight:700;font-size:var(--t-md);min-height:48px;cursor:pointer}
+  .sheet-cancel{background:#fff;border:1.5px solid var(--line);color:var(--muted)}
+  .sheet-ok{background:var(--pine);color:var(--ivory)}
+  .sheet-ok.danger{background:var(--clay);color:#fff}
+
+  .toast{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(20px);background:var(--pine-deep);color:var(--ivory);padding:var(--s3) var(--s5);border-radius:100px;font-weight:600;font-size:var(--t-sm);z-index:500;opacity:0;transition:all .3s;display:flex;gap:var(--s2);align-items:center;max-width:88vw;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -146,7 +167,7 @@
 <div class="top">
   <div class="top-in">
     <div class="brand"><span class="dot"></span>Marmee</div>
-    <button class="later" id="laterBtn" onclick="alert('No worries — your progress would be saved and we\u2019d text you a link to pick up where you left off.')">Save &amp; finish later</button>
+    <button class="later" id="laterBtn" onclick="toast('No worries — your progress would be saved and we\u2019d text you a link to pick up where you left off.')">Save &amp; finish later</button>
   </div>
   <div class="prog">
     <div class="prog-track"><div class="prog-fill" id="fill"></div></div>
@@ -208,7 +229,7 @@
     </div>
     <div class="field">
       <label class="fl">A photo <span class="opt">— optional, add anytime</span></label>
-      <div class="photo" onclick="alert('This would open your camera or photo library.')">
+      <div class="photo" onclick="toast('This would open your camera or photo library.')">
         <div class="pi">📷</div><b>Add a friendly photo</b><span>Moms love a warm face — but no rush.</span>
       </div>
     </div>
@@ -464,6 +485,81 @@
   }
 
   show();
+
+/* ---- ST-1: in-app sheet -------------------------------------------------
+   openSheet() resolves {ok, values} where values is keyed by input id.     */
+let _sheetRes=null;
+function _sheetClose(ok){
+  const body=document.getElementById('sheetBody');
+  const values={};
+  body.querySelectorAll('input,textarea,select').forEach(el=>{ values[el.id]=el.value; });
+  document.getElementById('sheet').classList.remove('on');
+  document.getElementById('sheetScrim').classList.remove('on');
+  const r=_sheetRes; _sheetRes=null;
+  if(r) r({ok:!!ok, values});
+}
+function openSheet(o){
+  document.getElementById('sheetTitle').textContent=o.title||'';
+  const sub=document.getElementById('sheetSub');
+  sub.textContent=o.sub||''; sub.style.display=o.sub?'block':'none';
+  document.getElementById('sheetBody').innerHTML=o.bodyHTML||'';
+  const ok=document.getElementById('sheetOk');
+  ok.textContent=o.okLabel||'Confirm';
+  ok.classList.toggle('danger', !!o.danger);
+  document.getElementById('sheetCancel').textContent=o.cancelLabel||'Never mind';
+  document.getElementById('sheetScrim').classList.add('on');
+  document.getElementById('sheet').classList.add('on');
+  setTimeout(()=>{ const first=document.querySelector('#sheetBody input,#sheetBody textarea'); if(first) first.focus(); },260);
+  return new Promise(res=>{ _sheetRes=res; });
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && _sheetRes) _sheetClose(false); });
+
+async function askConfirm(title, sub, okLabel, danger, cancelLabel){
+  const r = await openSheet({title, sub, okLabel:okLabel||'Yes', danger:!!danger, cancelLabel});
+  return r.ok;
+}
+async function askCancelVisit(){
+  const r = await openSheet({
+    title:'Cancel this visit?',
+    sub:'We’ll let the other person know. You can always book another.',
+    bodyHTML:'<label for="shReason">Reason — optional</label><input id="shReason" placeholder="Something came up">',
+    okLabel:'Cancel the visit', cancelLabel:'Keep it', danger:true });
+  return r.ok ? (r.values.shReason||'') : null;
+}
+async function askReschedule(){
+  const today=new Date().toISOString().slice(0,10);
+  const r = await openSheet({
+    title:'Pick a new time',
+    sub:'We’ll let the other person know about the change.',
+    bodyHTML:'<label for="shDate">New date</label><input type="date" id="shDate" min="'+today+'">'
+            +'<label for="shTime">New time</label><input id="shTime" placeholder="9:00 AM">',
+    okLabel:'Save the change' });
+  if(!r.ok) return null;
+  if(!r.values.shDate || !r.values.shTime){ toast('Please pick both a date and a time.'); return null; }
+  return { date:r.values.shDate, time:r.values.shTime };
+}
+
+let _toastTimer;
+function toast(m){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=m;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
+}
 </script>
+
+<div class="sheet-scrim" id="sheetScrim" onclick="_sheetClose(false)"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <h3 id="sheetTitle"></h3>
+  <div class="sheet-sub" id="sheetSub"></div>
+  <div id="sheetBody"></div>
+  <div class="sheet-btns">
+    <button class="sheet-cancel" id="sheetCancel" onclick="_sheetClose(false)">Never mind</button>
+    <button class="sheet-ok" id="sheetOk" onclick="_sheetClose(true)">Confirm</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
 </body>
 </html>
