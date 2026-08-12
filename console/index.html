@@ -95,6 +95,8 @@
 
   .row{display:flex;align-items:center;gap:var(--s4);padding:var(--s4) 0;border-top:1px solid var(--ivory-dim)}
   .row:first-of-type{border-top:none}
+  .row.flash{animation:flashrow 2s ease-out}
+  @keyframes flashrow{0%{background:rgba(200,153,58,0.22)}100%{background:transparent}}
   .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(140deg,var(--blush),var(--honey-soft));display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:600;color:var(--pine-deep);font-size:var(--t-md);flex-shrink:0}
   .avatar.pine{background:var(--pine);color:var(--honey-soft)}
   .rmain{flex:1;min-width:0}
@@ -414,7 +416,7 @@ function buildNav(){
       <span class="ic">${n.ic}</span><span class="lbl">${n.label}</span>${badge}</button>`;
   }).join('');
 }
-function go(id){
+function go(id, focusId){
   current=id;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   $('#view-'+id).classList.add('on');
@@ -422,6 +424,16 @@ function go(id){
   $('#vSub').textContent = SUBS[id];
   $('#side').classList.remove('show');
   buildNav();
+  // Linking to a record should land on that record, not the top of a long page.
+  if(focusId){
+    const el = document.getElementById('rec-'+focusId);
+    if(el){
+      el.scrollIntoView({block:'center', behavior:'smooth'});
+      el.classList.add('flash');
+      setTimeout(()=>el.classList.remove('flash'), 2000);
+      return;
+    }
+  }
   $('#main').scrollTo?.(0,0);
 }
 function toggleSide(){ $('#side').classList.toggle('show'); }
@@ -457,7 +469,7 @@ function renderOverview(){
         <div class="avatar">${initials(momName(m))}</div>
         <div class="rmain"><div class="name">${momName(m)} <span class="pill wait">In vetting</span></div>
           <div class="meta">Next step: ${stg} · ${m.neighborhood||''}</div></div>
-        <button class="act" onclick="go('moms')">Review</button></div>`;
+        <button class="act" onclick="go('moms','${m.id}')">Review</button></div>`;
     });
   }
   $('#view-overview').innerHTML = `
@@ -498,32 +510,21 @@ function renderRequests(){
 
 function renderMoms(){
   const act=activeMoms(), pend=pendingMoms();
-  let html = `<div class="panel"><div class="panel-head"><h3>Active roster</h3><span class="count">${act.length} Marm${act.length===1?'':'s'}</span></div>`;
-  if(!act.length){ html += `<div class="empty"><b>No active Marms yet</b>Approved Marms will appear here.</div>`; }
-  act.forEach(m=>{
-    const fc = momFamilyCount(m.id);
-    html += `<div class="row">
-      <div class="avatar">${initials(momName(m))}</div>
-      <div class="rmain">
-        <div class="name">${momName(m)} <span class="pill good">Active</span></div>
-        <div class="meta">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} Mom${fc===1?'':'s'}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
-        <div class="chips">${arr(m.areas).map(s=>`<span class="tag">${s}</span>`).join('')}</div>
-      </div></div>`;
-  });
-  html += `</div>`;
-  html += `<div class="panel"><div class="panel-head"><h3>In vetting</h3><span class="count">${pend.length} applicant${pend.length===1?'':'s'}</span></div>`;
+  // In vetting first: it is the queue that needs action. The active roster is
+  // reference data and belongs underneath it.
+  let html = `<div class="panel"><div class="panel-head"><h3>In vetting</h3><span class="count">${pend.length} applicant${pend.length===1?'':'s'}</span></div>`;
   if(!pend.length){ html += `<div class="empty"><b>Nobody waiting</b>New applicants from the Marm sign-up show up here.</div>`; }
   pend.forEach(m=>{
     const stage = m.vetting_stage||0;
     const atEnd = stage >= STAGES.length-1;
     let pipe='<div class="pipe">';
-    STAGES.forEach((s,i)=>{
+    STAGES.forEach((st,i)=>{
       const cls = i<stage?'done':(i===stage?'now':'');
-      pipe += `<div class="pnode ${cls}"><span class="pd">${i<stage?'✓':''}</span>${s}</div>`;
+      pipe += `<div class="pnode ${cls}"><span class="pd">${i<stage?'✓':''}</span>${st}</div>`;
       if(i<STAGES.length-1) pipe += `<div class="pconn ${i<stage?'done':''}"></div>`;
     });
     pipe+='</div>';
-    html += `<div class="row" style="align-items:flex-start">
+    html += `<div class="row" id="rec-${m.id}" style="align-items:flex-start">
       <div class="avatar">${initials(momName(m))}</div>
       <div class="rmain">
         <div class="name">${momName(m)} <span class="pill wait">${m.status==='new'?'New applicant':'Vetting'}</span></div>
@@ -532,6 +533,20 @@ function renderMoms(){
       </div>
       <button class="act" onclick="advance('${m.id}')">${atEnd?'Activate':'Mark '+STAGES[stage+1]+' done'}</button>
     </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="panel"><div class="panel-head"><h3>Active roster</h3><span class="count">${act.length} Marm${act.length===1?'':'s'}</span></div>`;
+  if(!act.length){ html += `<div class="empty"><b>No active Marms yet</b>Approved Marms will appear here.</div>`; }
+  act.forEach(m=>{
+    const fc = momFamilyCount(m.id);
+    html += `<div class="row" id="rec-${m.id}">
+      <div class="avatar">${initials(momName(m))}</div>
+      <div class="rmain">
+        <div class="name">${momName(m)} <span class="pill good">Active</span></div>
+        <div class="meta">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} Mom${fc===1?'':'s'}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
+        <div class="chips">${arr(m.areas).map(x=>`<span class="tag">${x}</span>`).join('')}</div>
+      </div></div>`;
   });
   html += `</div>`;
   $('#view-moms').innerHTML = html;
