@@ -132,7 +132,7 @@
      and look like the browser warnings people are told to distrust.        */
   .sheet-scrim{position:fixed;inset:0;background:rgba(21,32,26,.5);z-index:400;opacity:0;pointer-events:none;transition:opacity .2s}
   .sheet-scrim.on{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);width:100%;max-width:460px;background:var(--ivory);border-radius:22px 22px 0 0;padding:var(--s6) var(--s5) calc(var(--s6) + env(safe-area-inset-bottom,0px));z-index:401;transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+  .sheet{max-height:88vh;overflow-y:auto;position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);width:100%;max-width:460px;background:var(--ivory);border-radius:22px 22px 0 0;padding:var(--s6) var(--s5) calc(var(--s6) + env(safe-area-inset-bottom,0px));z-index:401;transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 -10px 40px rgba(0,0,0,.25)}
   .sheet.on{transform:translate(-50%,0)}
   .sheet h3{font-family:'Fraunces',Georgia,serif;font-size:var(--t-xl);color:var(--pine);margin-bottom:var(--s2)}
   .sheet .sheet-sub{color:var(--muted);font-size:var(--t-sm);margin-bottom:var(--s4)}
@@ -512,7 +512,7 @@
 /* ---- Card on file (Stripe) --------------------------------------------
    setup-intent -> Stripe Elements -> save-card. The secret key stays on
    Netlify; this only ever sees a publishable key and a client secret. */
-let _stripe=null, _elements=null, _cardMounted=false;
+let _stripe=null, _elements=null, _card=null, _clientSecret=null, _cardMounted=false;
 
 function cardErr(m){ const e=document.getElementById('cardErr'); e.textContent=m||''; e.style.display=m?'block':'none'; }
 
@@ -540,11 +540,23 @@ async function openCard(){
     if(!r.ok) throw new Error(d.error||'Could not start card setup.');
 
     _stripe = Stripe(d.publishableKey);
-    _elements = _stripe.elements({ clientSecret:d.clientSecret, appearance:{ theme:'flat', variables:{
-      colorPrimary:'#C8993A', colorBackground:'#ffffff', colorText:'#15201A',
-      fontFamily:'Hanken Grotesk, system-ui, sans-serif', borderRadius:'12px', fontSizeBase:'16px'
-    }}});
-    _elements.create('payment',{layout:'tabs'}).mount('#cardEl');
+    _clientSecret = d.clientSecret;
+    // Card Element, not Payment Element: one compact row. The Payment Element
+    // adds a country selector and Stripe's Link sign-up (name, email, mobile),
+    // which is a lot to put in front of someone just saving a card.
+    _elements = _stripe.elements();
+    _card = _elements.create('card', {
+      hidePostalCode: false,
+      style: {
+        base: {
+          color:'#15201A', fontFamily:'Hanken Grotesk, system-ui, sans-serif',
+          fontSize:'16px', '::placeholder':{ color:'#5C6B60' }
+        },
+        invalid: { color:'#9D4526', iconColor:'#9D4526' }
+      }
+    });
+    _card.mount('#cardEl');
+    _card.on('change', e => cardErr(e.error ? e.error.message : ''));
     _cardMounted=true;
     btn.disabled=false; btn.textContent='Save card';
   }catch(e){
@@ -562,7 +574,9 @@ async function saveCard(){
   const btn=document.getElementById('cardSave');
   btn.disabled=true; btn.textContent='Saving…'; cardErr('');
   try{
-    const { error, setupIntent } = await _stripe.confirmSetup({ elements:_elements, redirect:'if_required' });
+    const { error, setupIntent } = await _stripe.confirmCardSetup(_clientSecret, {
+      payment_method: { card: _card }
+    });
     if(error) throw new Error(error.message||'That card was not accepted.');
 
     const s=(await db.auth.getSession()).data.session;
@@ -719,7 +733,7 @@ async function resendConfirm(){
 <div class="sheet" id="cardSheet" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
   <h3 id="cardTitle">Your card</h3>
   <div class="sheet-sub">We only charge after a visit is finished.</div>
-  <div id="cardEl" style="margin-bottom:var(--s4)"></div>
+  <div id="cardEl" style="background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:var(--s4);margin-bottom:var(--s4)"></div>
   <div id="cardErr" style="display:none;color:var(--clay);font-weight:600;font-size:var(--t-sm);margin-bottom:var(--s3)"></div>
   <div class="sheet-btns">
     <button class="sheet-cancel" onclick="closeCard()">Never mind</button>
