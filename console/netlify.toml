@@ -1,0 +1,16 @@
+# The console.hiremarmee.com site has base directory `console`, so Netlify
+# reads THIS file.
+#
+# The Stripe functions live on the book.hiremarmee.com site (they sit next
+# to the Mom's card form). Calling them cross-origin fails: Netlify answers
+# the CORS preflight itself, without the headers the function would have
+# returned, so any request carrying an Authorization header is blocked.
+#
+# This proxy sidesteps it. The console calls /api/stripe-charge-visit on its
+# own origin; Netlify forwards it server-side. No preflight, no CORS.
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://book.hiremarmee.com/.netlify/functions/:splat"
+  status = 200
+  force = true
