@@ -65,7 +65,7 @@
   .timeline li{display:flex;gap:var(--s3);align-items:flex-start;padding:var(--s3) 0;border-top:1px solid var(--ivory-dim)}.timeline li:first-child{border-top:none}
   .timeline .tn{width:28px;height:28px;border-radius:50%;background:var(--ivory-dim);color:var(--pine);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:var(--t-sm);flex-shrink:0;font-family:'Fraunces',serif}
   .timeline b{display:block}.timeline span{color:var(--muted);font-size:var(--t-md)}
-  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(246,241,231,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);justify-content:center}
   .nav-in{max-width:580px;margin:0 auto;padding:var(--s3) var(--s5);display:flex;gap:var(--s3);align-items:center;width:100%}
   .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:var(--t-md);font-weight:600;cursor:pointer;padding:var(--s3) var(--s1);min-height:44px}.back:hover{color:var(--pine)}.back.hide{visibility:hidden}
   .next{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:var(--s4);border-radius:100px;font-family:inherit;font-weight:700;font-size:var(--t-lg);cursor:pointer;min-height:54px}
@@ -259,7 +259,7 @@
       const meta={ role:'family', name:d.name, neighborhood:d.neighborhood, household:d.household,
         request:{ areas:d.areas, frequency:d.frequency, window:d.window } };
       const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('The server took too long to respond. Check your connection and try again.')),15000));
-      const { data:su, error } = await Promise.race([ db.auth.signUp({ email, password:pass, options:{ data:meta } }), timeout ]);
+      const { data:su, error } = await Promise.race([ db.auth.signUp({ email, password:pass, options:{ data:meta, emailRedirectTo:'https://book.hiremarmee.com/' } }), timeout ]);
       if(error){ let m=error.message||'Sign-up failed.'; if(/already/i.test(m)) m='That email is already registered. Try signing in instead, or use a different email.'; reset(m); return; }
       const v=val('#nm'); document.getElementById('donehead').textContent = v ? `You're all set, ${v.split(' ')[0].replace('The','').trim()||v}!` : "You're all set!";
       if(!su || !su.session){
