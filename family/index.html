@@ -129,7 +129,7 @@
     <input id="pass" type="password" placeholder="Your password" onkeydown="if(event.key==='Enter')login()">
     <button class="gate-btn" id="loginBtn" onclick="login()">Sign in</button>
     <div class="gate-err" id="gateErr"></div>
-    <div class="gate-apply">Need help around the house? <a href="family-request.html">Request a Marmee →</a></div>
+    <div class="gate-apply">Need help around the house? <a href="family-request.html">Request a Marm →</a></div>
   </div>
 </div>
 
@@ -142,7 +142,7 @@
   <div id="body"></div>
   <div class="section-t">Your account</div>
   <div class="prow" onclick="stub('This would let you edit your request.')"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
-  <div class="prow" onclick="openMessages()"><span class="pic">💬</span><div class="pl"><b>Messages</b><span>Chat with your Marmee</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openMessages()"><span class="pic">💬</span><div class="pl"><b>Messages</b><span>Chat with your Marm</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
 </div></div>
 
@@ -205,15 +205,15 @@
     let html='';
 
     if(mom){
-      html += `<div class="section-t">Your Marmee</div>
+      html += `<div class="section-t">Your Marm</div>
         <div class="momcard"><div class="mava">${initials((mom.first_name||'')+' '+(mom.last_initial||''))}</div>
         <div><b>${(mom.first_name||'')+' '+(mom.last_initial||'')}</b>
         <div class="mm">${mom.rating?('★ '+Number(mom.rating).toFixed(1)+' · '):''}${mom.neighborhood||''}</div>
         <div class="chips">${arr(mom.areas).map(a=>`<span class="tag">${a}</span>`).join('')}</div></div></div>`;
     } else {
       html += `<div class="hero"><div class="hk">Your match</div>
-        <h2>We're finding your Marmee</h2>
-        <div class="sub2">We're hand-picking an experienced mom near you. We'll be in touch soon — hang tight.</div></div>`;
+        <h2>We're finding your Marm</h2>
+        <div class="sub2">We're hand-picking an experienced Marm near you. We'll be in touch soon — hang tight.</div></div>`;
     }
 
     html += `<div class="section-t">Upcoming visits</div>`;
@@ -302,7 +302,7 @@
   }
   function toggleBookForm(){ const f=document.getElementById('bookForm'); f.style.display=f.style.display==='none'?'block':'none'; }
   async function doBook(){
-    const mom=Object.values(momById)[0]; if(!mom){ alert('You\'ll be matched with a Marmee first.'); return; }
+    const mom=Object.values(momById)[0]; if(!mom){ alert('You\'ll be matched with a Marm first.'); return; }
     const date=document.getElementById('bkDate').value, time=(document.getElementById('bkTime').value||'').trim(), hours=parseFloat(document.getElementById('bkHours').value)||3;
     if(!date||!time){ alert('Pick a date and time.'); return; }
     const req=myReqs[0]; const areas=req?arr(req.areas):[];
@@ -368,13 +368,13 @@
   function openMessages(){
     const mom = Object.values(momById)[0];
     if(mom) openChat(mom.id);
-    else alert('You can message your Marmee once you\'re matched.');
+    else alert('You can message your Marm once you\'re matched.');
   }
   function openChat(momId){
     if(!momId) return;
     chatMomId=momId;
     const mom=momById[momId];
-    document.getElementById('chatName').textContent = mom?((mom.first_name||'')+' '+(mom.last_initial||'')).trim():'Your Marmee';
+    document.getElementById('chatName').textContent = mom?((mom.first_name||'')+' '+(mom.last_initial||'')).trim():'Your Marm';
     document.getElementById('chat').classList.add('on');
     loadChat(); if(chatPoll)clearInterval(chatPoll); chatPoll=setInterval(loadChat,4000);
   }

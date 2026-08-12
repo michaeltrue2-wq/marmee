@@ -328,7 +328,7 @@
       const cls = i<stage ? 'done' : (i===stage ? 'now' : '');
       html += `<div class="vstep ${cls}"><div class="vd">${i<stage?'✓':''}</div><div><b>${s[0]}</b><span>${s[1]}</span></div></div>`;
     });
-    html += `<div class="vstep"><div class="vd"></div><div><b>Your profile goes live</b><span>And we start finding families near you.</span></div></div>`;
+    html += `<div class="vstep"><div class="vd"></div><div><b>Your profile goes live</b><span>And we start finding Moms near you.</span></div></div>`;
     $('#vetSteps').innerHTML = html;
     $('#vet').classList.add('on');
   }
@@ -381,10 +381,10 @@
     } else {
       hero = `<div class="hero"><div class="hk">Your schedule</div>
         <div class="when" style="font-size:1.3rem">No visits booked yet</div>
-        <div class="det">We're finding families near you — you'll see your first visit here.</div></div>`;
+        <div class="det">We're finding Moms near you — you'll see your first visit here.</div></div>`;
     }
     let fams = famIds.map(id=>`<div class="fchip" onclick="openChat('${id}')"><div class="fav">${initials(famName(id))}</div><b>${famName(id)}</b><span>${famById[id]?.neighborhood||''}</span></div>`).join('');
-    if(!fams) fams = `<div class="fchip" style="cursor:default"><span style="color:var(--muted)">No families yet</span></div>`;
+    if(!fams) fams = `<div class="fchip" style="cursor:default"><span style="color:var(--muted)">No Moms yet</span></div>`;
     $('#v-home').innerHTML = `
       <div class="section-t">Your next visit</div>${hero}
       <div class="section-t">So far</div>
@@ -392,7 +392,7 @@
         <button class="mcard" onclick="go('earnings')"><div class="mk">Earned</div><div class="mv">$${Math.round(earned)}</div></button>
         <button class="mcard" onclick="go('schedule')"><div class="mk">Upcoming</div><div class="mv">${upcoming.length}<small> visit${upcoming.length===1?'':'s'}</small></div></button>
       </div>
-      <div class="section-t">Your families</div>
+      <div class="section-t">Your Moms</div>
       <div class="fam-row">${fams}</div>`;
   }
 
@@ -416,7 +416,7 @@
             <span class="pill ${v.status==='completed'?'done':'up'}">${(v.status||'').charAt(0).toUpperCase()+(v.status||'').slice(1)}</span>
           </div>
           <div class="checklist"><div class="ct">Checklist</div>
-            ${tasks.length? tasks.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}',this.checked)"><label>${esc(t.label)}</label></div>`).join('') : '<div style="color:var(--muted);font-size:.9rem">The family will add what they\'d like done.</div>'}
+            ${tasks.length? tasks.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}',this.checked)"><label>${esc(t.label)}</label></div>`).join('') : '<div style="color:var(--muted);font-size:.9rem">The Mom will add what she\'d like done.</div>'}
           </div>
           <div class="vacts">
             <button class="actbtn" onclick="openChat('${v.family_id}')">💬 Message</button>
@@ -424,8 +424,8 @@
             ${open?`<button class="actbtn" onclick="doResched('${v.id}')">Reschedule</button><button class="actbtn warn" onclick="doCancel('${v.id}')">Cancel</button>`:''}
           </div>
           ${v.status==='completed' ? (myReviews[v.id]
-            ? `<div class="reviewed"><span class="stars-ro">${'★'.repeat(myReviews[v.id].rating)}${'☆'.repeat(5-myReviews[v.id].rating)}</span> <span style="color:var(--muted);font-size:.85rem">you rated this family</span></div>`
-            : `<div class="reviewbox"><div class="rvt">Rate this family</div>
+            ? `<div class="reviewed"><span class="stars-ro">${'★'.repeat(myReviews[v.id].rating)}${'☆'.repeat(5-myReviews[v.id].rating)}</span> <span style="color:var(--muted);font-size:.85rem">you rated this Mom</span></div>`
+            : `<div class="reviewbox"><div class="rvt">Rate this Mom</div>
                  <div class="stars" id="stars-${v.id}" data-rating="0">${[1,2,3,4,5].map(n=>`<button class="star" onclick="setStar('${v.id}',${n})">★</button>`).join('')}</div>
                  <input class="rev-input" id="rev-${v.id}" placeholder="Add a note (optional)">
                  <button class="rev-submit" onclick="submitReview('${v.id}')">Submit</button>
