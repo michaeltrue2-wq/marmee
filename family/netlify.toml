@@ -1,0 +1,12 @@
+# The book.hiremarmee.com site has base directory `family`, so Netlify reads
+# THIS file rather than one at the repo root, and resolves paths from here.
+#
+# The functions live on this site because the Mom's card form does. The
+# console calls stripe-charge-visit cross-origin; CORS headers are set in
+# netlify/functions/_shared.js.
+
+[build]
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"

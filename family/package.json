@@ -1,0 +1,10 @@
+{
+  "name": "marmee-functions",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Serverless functions for Marmee. The three apps stay static HTML; only payments need a server, because the Stripe secret key must never reach a browser.",
+  "dependencies": {
+    "stripe": "^16.12.0",
+    "@supabase/supabase-js": "^2.45.4"
+  }
+}
