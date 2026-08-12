@@ -544,7 +544,7 @@ async function openCard(){
       colorPrimary:'#C8993A', colorBackground:'#ffffff', colorText:'#15201A',
       fontFamily:'Hanken Grotesk, system-ui, sans-serif', borderRadius:'12px', fontSizeBase:'16px'
     }}});
-    _elements.create('payment',{layout:'tab'}).mount('#cardEl');
+    _elements.create('payment',{layout:'tabs'}).mount('#cardEl');
     _cardMounted=true;
     btn.disabled=false; btn.textContent='Save card';
   }catch(e){
