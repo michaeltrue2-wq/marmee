@@ -71,6 +71,12 @@
   .next{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:var(--s4);border-radius:100px;font-family:inherit;font-weight:700;font-size:var(--t-lg);cursor:pointer;min-height:54px}
   .next:hover{background:var(--honey-soft)}.next:disabled{opacity:.6;cursor:default}
   .buildtag{position:fixed;bottom:6px;right:9px;font-size:var(--t-xs);color:var(--honey-deep);opacity:.5;font-family:monospace;z-index:9999}
+
+  /* ---- Password show/hide -------------------------------------------- */
+  .pw-wrap{position:relative;display:block}
+  .pw-wrap input{padding-right:78px !important;margin-bottom:0 !important}
+  .pw-toggle{position:absolute;right:var(--s1);top:50%;transform:translateY(-50%);background:none;border:none;color:var(--honey-deep);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer;min-height:44px;padding:0 var(--s3);border-radius:100px}
+  .pw-toggle:hover{background:rgba(200,153,58,.12)}
 </style>
 </head>
 <body>
@@ -177,7 +183,7 @@
   <div class="step" data-nav="hidden">
     <div class="done-ic">✓</div>
     <h1 id="donehead">You're all set!</h1>
-    <p class="lead">We've got your request. Here's what happens next:</p>
+    <p class="lead" id="doneLead">We've got your request. Here's what happens next:</p>
     <ul class="timeline">
       <li><span class="tn">1</span><div><b>We find your Marm</b><span>We hand-pick an experienced Marm near you who fits.</span></div></li>
       <li><span class="tn">2</span><div><b>You meet her</b><span>See her profile and message her right in the app.</span></div></li>
@@ -256,10 +262,44 @@
       const { data:su, error } = await Promise.race([ db.auth.signUp({ email, password:pass, options:{ data:meta } }), timeout ]);
       if(error){ let m=error.message||'Sign-up failed.'; if(/already/i.test(m)) m='That email is already registered. Try signing in instead, or use a different email.'; reset(m); return; }
       const v=val('#nm'); document.getElementById('donehead').textContent = v ? `You're all set, ${v.split(' ')[0].replace('The','').trim()||v}!` : "You're all set!";
+      if(!su || !su.session){
+        document.getElementById('donehead').textContent = 'Check your email';
+        document.getElementById('doneLead').textContent =
+          'We just sent a confirmation link to ' + email + '. Tap it to finish setting up your sign-in — your request is already with us. Then here is what happens next:';
+      }
       i=steps.length-1; show();
     }catch(e){ reset('Something went wrong: '+(e&&e.message?e.message:'unknown error')+'. Please try again.'); }
   }
   show();
+
+/* ---- Password show/hide -------------------------------------------------
+   Wraps every password field and adds a Show/Hide button. The input's own
+   bottom margin moves to the wrapper so the button stays vertically centred. */
+function attachPwToggles(){
+  document.querySelectorAll('input[type="password"]').forEach(inp=>{
+    if(inp.dataset.pwToggle) return;
+    inp.dataset.pwToggle='1';
+    const mb = getComputedStyle(inp).marginBottom;
+    const wrap=document.createElement('div');
+    wrap.className='pw-wrap';
+    wrap.style.marginBottom = mb;
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const b=document.createElement('button');
+    b.type='button'; b.className='pw-toggle'; b.textContent='Show';
+    b.setAttribute('aria-label','Show password');
+    b.addEventListener('click', ()=>{
+      const hidden = inp.type==='password';
+      inp.type = hidden ? 'text' : 'password';
+      b.textContent = hidden ? 'Hide' : 'Show';
+      b.setAttribute('aria-label', (hidden?'Hide':'Show')+' password');
+      inp.focus();
+    });
+    wrap.appendChild(b);
+  });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', attachPwToggles);
+else attachPwToggles();
 </script>
 </body>
 </html>

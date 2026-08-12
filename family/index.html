@@ -146,6 +146,14 @@
 
   .toast{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(20px);background:var(--pine-deep);color:var(--ivory);padding:var(--s3) var(--s5);border-radius:100px;font-weight:600;font-size:var(--t-sm);z-index:500;opacity:0;transition:all .3s;display:flex;gap:var(--s2);align-items:center;max-width:88vw;pointer-events:none}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ---- Password show/hide -------------------------------------------- */
+  .pw-wrap{position:relative;display:block}
+  .pw-wrap input{padding-right:78px !important;margin-bottom:0 !important}
+  .pw-toggle{position:absolute;right:var(--s1);top:50%;transform:translateY(-50%);background:none;border:none;color:var(--honey-deep);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer;min-height:44px;padding:0 var(--s3);border-radius:100px}
+  .pw-toggle:hover{background:rgba(200,153,58,.12)}
+
+  .resend-link{display:block;width:100%;background:none;border:none;color:var(--honey-deep);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer;text-decoration:underline;text-underline-offset:3px;min-height:44px;margin-top:var(--s2)}
 </style>
 </head>
 <body>
@@ -161,6 +169,7 @@
     <input id="pass" type="password" placeholder="Your password" onkeydown="if(event.key==='Enter')login()">
     <button class="gate-btn" id="loginBtn" onclick="login()">Sign in</button>
     <div class="gate-err" id="gateErr"></div>
+    <button class="resend-link" id="resendBtn" onclick="resendConfirm()">Didn’t get the confirmation email? Send it again</button>
     <div class="gate-apply">Need help around the house? <a href="family-request.html">Request a Marm →</a></div>
   </div>
 </div>
@@ -557,6 +566,46 @@ function toast(m){
   t.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+/* ---- Password show/hide -------------------------------------------------
+   Wraps every password field and adds a Show/Hide button. The input's own
+   bottom margin moves to the wrapper so the button stays vertically centred. */
+function attachPwToggles(){
+  document.querySelectorAll('input[type="password"]').forEach(inp=>{
+    if(inp.dataset.pwToggle) return;
+    inp.dataset.pwToggle='1';
+    const mb = getComputedStyle(inp).marginBottom;
+    const wrap=document.createElement('div');
+    wrap.className='pw-wrap';
+    wrap.style.marginBottom = mb;
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const b=document.createElement('button');
+    b.type='button'; b.className='pw-toggle'; b.textContent='Show';
+    b.setAttribute('aria-label','Show password');
+    b.addEventListener('click', ()=>{
+      const hidden = inp.type==='password';
+      inp.type = hidden ? 'text' : 'password';
+      b.textContent = hidden ? 'Hide' : 'Show';
+      b.setAttribute('aria-label', (hidden?'Hide':'Show')+' password');
+      inp.focus();
+    });
+    wrap.appendChild(b);
+  });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', attachPwToggles);
+else attachPwToggles();
+
+/* Confirmation emails land in spam often enough that this needs to exist. */
+async function resendConfirm(){
+  const email=($('#email').value||'').trim();
+  if(!email){ gerr('Type your email above first, then tap this again.'); return; }
+  try{
+    const { error } = await db.auth.resend({ type:'signup', email });
+    if(error){ gerr('We could not send it just now. Try again in a few minutes.'); return; }
+    gerr(''); toast('Sent. Check your inbox — and your spam folder.');
+  }catch(e){ gerr('We could not send it just now. Try again in a few minutes.'); }
 }
 </script>
 

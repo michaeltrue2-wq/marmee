@@ -159,6 +159,12 @@
 
   .toast{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(20px);background:var(--pine-deep);color:var(--ivory);padding:var(--s3) var(--s5);border-radius:100px;font-weight:600;font-size:var(--t-sm);z-index:500;opacity:0;transition:all .3s;display:flex;gap:var(--s2);align-items:center;max-width:88vw;pointer-events:none}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ---- Password show/hide -------------------------------------------- */
+  .pw-wrap{position:relative;display:block}
+  .pw-wrap input{padding-right:78px !important;margin-bottom:0 !important}
+  .pw-toggle{position:absolute;right:var(--s1);top:50%;transform:translateY(-50%);background:none;border:none;color:var(--honey-deep);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer;min-height:44px;padding:0 var(--s3);border-radius:100px}
+  .pw-toggle:hover{background:rgba(200,153,58,.12)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -340,7 +346,7 @@
   <div class="step" data-nav="hidden">
     <div class="done-ic">✓</div>
     <h1 id="donehead">You're all set!</h1>
-    <p class="lead">That's everything we need from you for now. Here's what happens next:</p>
+    <p class="lead" id="doneLead">That's everything we need from you for now. Here's what happens next:</p>
     <ul class="timeline">
       <li><span class="tn">1</span><div><b>We check your references</b><span>A quiet call or two over the next few days.</span></div></li>
       <li><span class="tn">2</span><div><b>Your background check clears</b><span>You complete it on the secure link we texted.</span></div></li>
@@ -478,6 +484,13 @@
         reset(m); return;
       }
       nameChg();
+      // If email confirmation is on, signUp returns no session. Saying
+      // "You're all set" here sends her to a sign-in she cannot pass.
+      if(!su || !su.session){
+        document.getElementById('donehead').textContent = 'Check your email';
+        document.getElementById('doneLead').textContent =
+          'We just sent a confirmation link to ' + email + '. Tap it to finish setting up your sign-in — your application is already saved. Then here is what happens next:';
+      }
       i = steps.length-1; show();
     }catch(e){
       reset('Something went wrong: ' + (e && e.message ? e.message : 'unknown error') + '. Please try again.');
@@ -547,6 +560,35 @@ function toast(m){
   clearTimeout(_toastTimer);
   _toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
 }
+
+/* ---- Password show/hide -------------------------------------------------
+   Wraps every password field and adds a Show/Hide button. The input's own
+   bottom margin moves to the wrapper so the button stays vertically centred. */
+function attachPwToggles(){
+  document.querySelectorAll('input[type="password"]').forEach(inp=>{
+    if(inp.dataset.pwToggle) return;
+    inp.dataset.pwToggle='1';
+    const mb = getComputedStyle(inp).marginBottom;
+    const wrap=document.createElement('div');
+    wrap.className='pw-wrap';
+    wrap.style.marginBottom = mb;
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const b=document.createElement('button');
+    b.type='button'; b.className='pw-toggle'; b.textContent='Show';
+    b.setAttribute('aria-label','Show password');
+    b.addEventListener('click', ()=>{
+      const hidden = inp.type==='password';
+      inp.type = hidden ? 'text' : 'password';
+      b.textContent = hidden ? 'Hide' : 'Show';
+      b.setAttribute('aria-label', (hidden?'Hide':'Show')+' password');
+      inp.focus();
+    });
+    wrap.appendChild(b);
+  });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', attachPwToggles);
+else attachPwToggles();
 </script>
 
 <div class="sheet-scrim" id="sheetScrim" onclick="_sheetClose(false)"></div>

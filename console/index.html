@@ -208,6 +208,12 @@
   .sheet-cancel{background:#fff;border:1.5px solid var(--line);color:var(--muted)}
   .sheet-ok{background:var(--pine);color:var(--ivory)}
   .sheet-ok.danger{background:var(--clay);color:#fff}
+
+  /* ---- Password show/hide -------------------------------------------- */
+  .pw-wrap{position:relative;display:block}
+  .pw-wrap input{padding-right:78px !important;margin-bottom:0 !important}
+  .pw-toggle{position:absolute;right:var(--s1);top:50%;transform:translateY(-50%);background:none;border:none;color:var(--honey-deep);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer;min-height:44px;padding:0 var(--s3);border-radius:100px}
+  .pw-toggle:hover{background:rgba(200,153,58,.12)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -808,6 +814,35 @@ async function askReschedule(){
   if(!r.values.shDate || !r.values.shTime){ toast('Please pick both a date and a time.'); return null; }
   return { date:r.values.shDate, time:r.values.shTime };
 }
+
+/* ---- Password show/hide -------------------------------------------------
+   Wraps every password field and adds a Show/Hide button. The input's own
+   bottom margin moves to the wrapper so the button stays vertically centred. */
+function attachPwToggles(){
+  document.querySelectorAll('input[type="password"]').forEach(inp=>{
+    if(inp.dataset.pwToggle) return;
+    inp.dataset.pwToggle='1';
+    const mb = getComputedStyle(inp).marginBottom;
+    const wrap=document.createElement('div');
+    wrap.className='pw-wrap';
+    wrap.style.marginBottom = mb;
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const b=document.createElement('button');
+    b.type='button'; b.className='pw-toggle'; b.textContent='Show';
+    b.setAttribute('aria-label','Show password');
+    b.addEventListener('click', ()=>{
+      const hidden = inp.type==='password';
+      inp.type = hidden ? 'text' : 'password';
+      b.textContent = hidden ? 'Hide' : 'Show';
+      b.setAttribute('aria-label', (hidden?'Hide':'Show')+' password');
+      inp.focus();
+    });
+    wrap.appendChild(b);
+  });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', attachPwToggles);
+else attachPwToggles();
 </script>
 
 <div class="sheet-scrim" id="sheetScrim" onclick="_sheetClose(false)"></div>
