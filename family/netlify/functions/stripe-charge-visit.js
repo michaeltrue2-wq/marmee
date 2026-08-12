@@ -80,6 +80,16 @@ exports.handler = async (event) => {
     await db.from('visits').update({ payment_status: 'processing' }).eq('id', visit.id);
 
     const s = stripe();
+
+    // Stripe emails a receipt when receipt_email is set. The address lives on
+    // the Stripe customer, not in our tables, so read it from there. A failure
+    // here must not stop the charge — worst case she gets no receipt.
+    let receiptEmail = null;
+    try{
+      const cust = await s.customers.retrieve(family.stripe_customer_id);
+      receiptEmail = (cust && !cust.deleted && cust.email) || null;
+    }catch(e){ console.error('could not read customer email', e); }
+
     let intent;
     try{
       intent = await s.paymentIntents.create({
@@ -90,6 +100,7 @@ exports.handler = async (event) => {
         off_session: true,
         confirm: true,
         description: `Marmee visit — ${family.name || ''}`.trim(),
+        receipt_email: receiptEmail || undefined,
         metadata: { marmee_visit_id: visit.id, marmee_family_id: family.id, platform_fee_cents: String(fee) }
       }, {
         // Stripe will not double-charge if this is retried.

@@ -189,6 +189,11 @@
   .schedrow input:focus,.schedrow select:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
   .timechip{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:var(--s2) var(--s3);font-family:inherit;font-size:var(--t-sm);font-weight:600;cursor:pointer;min-height:36px}
   .timechip:hover{border-color:var(--honey);background:#fff}
+  .fitlist{margin:var(--s2) 0}
+  .fitrow{font-size:var(--t-sm);line-height:1.5;display:flex;gap:var(--s2)}
+  .fitrow.ok{color:var(--pine)}
+  .fitrow.no{color:var(--clay);font-weight:600}
+  .cand.imperfect{border-color:rgba(157,69,38,.35)}
   .minibtn{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:var(--s2) var(--s3);font-family:inherit;font-size:var(--t-sm);font-weight:600;cursor:pointer;white-space:nowrap}
   .minibtn:hover{border-color:var(--honey)}
   .minibtn.done{background:var(--pine);color:var(--ivory);border-color:var(--pine)}
@@ -623,26 +628,113 @@ function renderSchedule(){
 
 /* ================= ACTIONS (write to DB) ================= */
 let activeReqId=null;
+
+/* ================= MATCHING =================
+   Scores a Marm against a request on three things the console previously
+   displayed but never compared: the work, the time of day, and how far she
+   said she would travel. Nothing is hidden — a poor fit is still offered,
+   but the reasons why are spelled out and it sorts to the bottom.        */
+
+// Request windows are free text ("Weekday mornings", "Fri afternoons",
+// "Weekday 3-6pm"). Pull the parts of day out of whatever was written.
+function windowParts(text){
+  const t = (text||'').toLowerCase();
+  const out = new Set();
+  if(/morning/.test(t)) out.add('Mornings');
+  if(/afternoon/.test(t)) out.add('Afternoons');
+  if(/evening|night/.test(t)) out.add('Evenings');
+  // Clock times, including ranges where only the end carries the meridiem:
+  // "3-6pm" means 3pm to 6pm, which spans afternoon AND evening.
+  const bucket = h => h < 12 ? 'Mornings' : (h < 17 ? 'Afternoons' : 'Evenings');
+  const to24 = (n, ap) => {
+    let h = parseInt(n, 10);
+    if(ap === 'pm' && h < 12) h += 12;
+    if(ap === 'am' && h === 12) h = 0;
+    return h;
+  };
+  // ranges first: 3-6pm, 9am-1pm, 3:30-6pm
+  const ranges = [...t.matchAll(/(\d{1,2})(?::\d{2})?\s*(am|pm)?\s*[-–to]+\s*(\d{1,2})(?::\d{2})?\s*(am|pm)/g)];
+  ranges.forEach(([,h1,ap1,h2,ap2])=>{
+    const end = to24(h2, ap2);
+    const start = to24(h1, ap1 || ap2);   // "3-6pm" -> the 3 is pm too
+    for(let h = start; h <= end; h++) out.add(bucket(h));
+  });
+  // then any standalone times not already covered
+  if(!ranges.length){
+    (t.match(/(\d{1,2})\s*(?:[:.]\d{2})?\s*(am|pm)/g) || []).forEach(c=>{
+      out.add(bucket(to24(parseInt(c,10), /pm/.test(c) ? 'pm' : 'am')));
+    });
+  }
+  return [...out];
+}
+
+function scoreMatch(m, req, fam){
+  const reqAreas = arr(req.areas);
+  const momAreas = arr(m.areas);
+  const hits = reqAreas.filter(a=>momAreas.includes(a));
+
+  const wanted = windowParts(req.preferred_window);
+  const hers   = arr(m.times_available);
+  const timeHits = wanted.filter(w=>hers.includes(w));
+
+  const sameHood = fam && m.neighborhood && fam.neighborhood
+                 && m.neighborhood.trim().toLowerCase() === fam.neighborhood.trim().toLowerCase();
+  const hoodOnly = /neighborhood only/i.test(m.travel_radius||'');
+
+  const good = [], warn = [];
+
+  if(reqAreas.length){
+    if(hits.length === reqAreas.length) good.push(`Covers all ${reqAreas.length} area${reqAreas.length===1?'':'s'}`);
+    else if(hits.length)                warn.push(`Covers ${hits.length} of ${reqAreas.length} areas — not ${reqAreas.filter(a=>!momAreas.includes(a)).join(', ')}`);
+    else                                warn.push('None of the areas they asked for');
+  }
+
+  if(wanted.length){
+    if(timeHits.length) good.push(`Free ${timeHits.join(' and ').toLowerCase()}`);
+    else                warn.push(`Works ${hers.join(', ').toLowerCase() || 'unknown hours'} — they asked for ${wanted.join(' and ').toLowerCase()}`);
+  }
+
+  if(sameHood)      good.push(`Same neighborhood — ${m.neighborhood}`);
+  else if(hoodOnly) warn.push(`Travels her neighborhood only (${m.neighborhood||'—'}) — they're in ${fam?fam.neighborhood:'—'}`);
+  else if(m.travel_radius) good.push(`Travels ${m.travel_radius.toLowerCase()}`);
+
+  // Weighting: the work matters most, then the hours, then distance.
+  const score = (hits.length * 10)
+              + (timeHits.length * 6)
+              + (sameHood ? 4 : 0)
+              - (hoodOnly && !sameHood ? 8 : 0)
+              - (momFamilyCount(m.id) * 0.5);   // spread the load
+
+  return { hits, good, warn, score };
+}
+
 function openMatch(rid){
   activeReqId = rid;
   const r = state.requests.find(x=>x.id===rid);
   $('#drTitle').textContent = famName(r.family_id);
   $('#drSub').textContent = `${r.frequency||''} · ${r.preferred_window||''} · ${arr(r.areas).join(', ')}`;
   const reqAreas = arr(r.areas);
-  const cands = activeMoms().map(m=>{
-    const hits = reqAreas.filter(t=>arr(m.areas).includes(t));
-    return {m, hits};
-  }).sort((a,b)=> b.hits.length-a.hits.length || momFamilyCount(a.m.id)-momFamilyCount(b.m.id));
-  $('#drBody').innerHTML = cands.length ? cands.map(({m,hits})=>{
+  const fam = famById(r.family_id);
+  const cands = activeMoms()
+    .map(m => ({ m, ...scoreMatch(m, r, fam) }))
+    .sort((a,b) => b.score - a.score);
+
+  $('#drBody').innerHTML = cands.length ? cands.map(({m,good,warn})=>{
     const fc = momFamilyCount(m.id);
-    return `<div class="cand">
+    const clean = warn.length === 0;
+    return `<div class="cand${clean?'':' imperfect'}">
       <div class="cand-top">
         <div class="avatar">${initials(momName(m))}</div>
         <div class="cinfo"><b>${momName(m)}</b><div class="cm">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${m.neighborhood||''} · ${fc} Mom${fc===1?'':'s'} now</div></div>
       </div>
-      <div class="fit">${hits.length? `Covers ${hits.length} of ${reqAreas.length} areas`:'Available · no area overlap'}</div>
-      <div class="chips" style="margin-bottom:12px">${reqAreas.map(t=>`<span class="tag ${arr(m.areas).includes(t)?'hit':''}">${t}</span>`).join('')}</div>
-      <button class="act honey" onclick="pickMom('${m.id}')">Match ${m.first_name} with ${famName(r.family_id)}</button>
+      <div class="fitlist">
+        ${good.map(g=>`<div class="fitrow ok">✓ ${g}</div>`).join('')}
+        ${warn.map(w=>`<div class="fitrow no">! ${w}</div>`).join('')}
+      </div>
+      <div class="chips" style="margin:var(--s3) 0">${reqAreas.map(t=>`<span class="tag ${arr(m.areas).includes(t)?'hit':''}">${t}</span>`).join('')}</div>
+      <button class="act ${clean?'honey':'ghost'}" onclick="pickMom('${m.id}')">
+        ${clean ? `Match ${m.first_name} with ${famName(r.family_id)}` : `Match anyway — ${warn.length} mismatch${warn.length===1?'':'es'}`}
+      </button>
     </div>`;
   }).join('') : `<div class="empty"><b>No active Marms yet</b>Approve a Marm in the Marms tab first.</div>`;
   $('#scrim').classList.add('open'); $('#drawer').classList.add('open');

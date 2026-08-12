@@ -306,6 +306,20 @@
   const SUPABASE_URL = 'https://dlargnwijzrlruaxzsgj.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
   const RATE = 28;
+  const PLATFORM_FEE = 0.15;   // matches the console and the charge function
+
+  // What she is actually owed for a visit, from what was actually collected.
+  // Falls back to hours x rate only for visits recorded before payments
+  // existed — never for one that failed.
+  function visitPay(v){
+    if(v.payment_status === 'paid' && v.amount_cents != null){
+      return (v.amount_cents / 100) * (1 - PLATFORM_FEE);
+    }
+    if(v.payment_status === 'failed' || v.payment_status === 'processing') return 0;
+    return (Number(v.hours)||0) * (Number(v.rate)||RATE) * (1 - PLATFORM_FEE);
+  }
+  const isPaid    = v => v.payment_status === 'paid';
+  const isPending = v => v.status === 'completed' && v.payment_status !== 'paid';
   let db = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
   const $ = s => document.querySelector(s);
@@ -476,7 +490,7 @@
     const upcoming = myVisits.filter(v=>v.status==='upcoming'||v.status==='confirmed')
       .sort((a,b)=>(a.visit_date||'').localeCompare(b.visit_date||''));
     const next = upcoming[0];
-    const earned = myVisits.filter(v=>v.status==='completed').reduce((s,v)=>s+(Number(v.hours)||0)*(Number(v.rate)||RATE),0);
+    const earned = myVisits.filter(isPaid).reduce((s,v)=>s+visitPay(v),0);
     const famIds = [...new Set(myVisits.map(v=>v.family_id).filter(Boolean))];
     let hero;
     if(next){
@@ -606,14 +620,35 @@
   function renderEarnings(){
     const done = myVisits.filter(v=>v.status==='completed')
       .sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
-    const total = done.reduce((s,v)=>s+(Number(v.hours)||0)*(Number(v.rate)||RATE),0);
-    let rows = done.map(v=>`<div class="erow"><div class="eb"><b>${famName(v.family_id)}</b><span>${fmtDay(v.visit_date)} · ${v.hours||0} hours</span></div><div class="ea">$${(Number(v.hours)||0)*(Number(v.rate)||RATE)}</div></div>`).join('');
-    if(!rows) rows = `<div class="erow"><div class="eb"><span style="color:var(--muted)">No completed visits yet — your earnings will show here.</span></div></div>`;
+
+    // Paid means paid. Anything else is shown separately rather than counted,
+    // so the headline number is money that actually reached her.
+    const paid    = done.filter(isPaid);
+    const pending = done.filter(isPending);
+    const total   = paid.reduce((s,v)=>s+visitPay(v),0);
+    const owed    = pending.reduce((s,v)=>s+visitPay(v),0);
+
+    const row = (v, note) => `<div class="erow">
+      <div class="eb"><b>${famName(v.family_id)}</b>
+        <span>${fmtDay(v.visit_date)} · ${v.hours||0} hours${note?' · '+note:''}</span></div>
+      <div class="ea">$${visitPay(v).toFixed(2).replace(/\.00$/,'')}</div></div>`;
+
+    let rows = paid.map(v=>row(v)).join('');
+    if(!rows) rows = `<div class="erow"><div class="eb"><span style="color:var(--muted)">No paid visits yet — your earnings will show here.</span></div></div>`;
+
+    const pendingBlock = pending.length ? `
+      <div class="section-t">Still being paid</div>
+      ${pending.map(v=>row(v, v.payment_status==='failed' ? 'payment issue — we are on it' : 'processing')).join('')}
+      <div class="reassure" style="margin-top:var(--s3)"><span class="ri">🕊️</span><div>
+        These visits are done and $${owed.toFixed(2).replace(/\.00$/,'')} is on its way. We chase the payment, not you.
+      </div></div>` : '';
+
     $('#v-earnings').innerHTML = `
       <div class="section-t">Earnings</div>
-      <div class="ebig"><div class="ek">Earned so far</div><div class="ev">$${Math.round(total)}</div><div class="es">across ${done.length} visit${done.length===1?'':'s'}</div></div>
-      <div class="section-t">Recent visits</div>${rows}
-      <div class="reassure"><span class="ri">🌿</span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${RATE}/hour</b>, always.</div></div>`;
+      <div class="ebig"><div class="ek">Paid to you</div><div class="ev">$${total.toFixed(2).replace(/\.00$/,'')}</div><div class="es">across ${paid.length} visit${paid.length===1?'':'s'}</div></div>
+      ${pendingBlock}
+      <div class="section-t">Paid visits</div>${rows}
+      <div class="reassure"><span class="ri">🌿</span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${RATE}/hour</b>, and Marmee keeps ${Math.round(PLATFORM_FEE*100)}%.</div></div>`;
   }
 
   function renderYou(){

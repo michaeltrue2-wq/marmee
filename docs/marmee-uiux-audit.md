@@ -505,3 +505,82 @@ Internal identifiers (`moms` table, `mom_id`, `momName()`, `view-moms`) were del
 8. **FN-5, TE-1** — operator access and the subdomain rename.
 
 Items 1–5 are roughly a day. Item 6 is the big mechanical pass. Item 7 is the biggest visual upgrade per hour spent.
+
+---
+
+# Appendix — what shipped on 12 August
+
+A record of the day, in the order things happened, including the things that
+went wrong. Kept because the mistakes are more useful than the fixes.
+
+## Fixed and verified live
+
+**Terminology.** 54 strings. Moms are clients, Marms are helpers, Marmee is the
+company. Internal identifiers deliberately untouched.
+
+**Auth recovery.** A session with no profile row used to strand the user on a
+sign-in screen with no way out — the only sign-out control lived inside the app
+shell they couldn't reach. Now signs them out, and if the account belongs to the
+other app, links them there.
+
+**Friendly errors.** `AUTH_MESSAGES` maps Supabase's raw strings. No user sees
+`Invalid login credentials` again.
+
+**Sign-in hang.** `signInWithPassword()` followed immediately by `getUser()`
+deadlocks on supabase-js's auth lock. Reproduced live. Now uses the user object
+the sign-in already returned, with a 15-second timeout on every path.
+
+**One spacing scale, one type scale.** 483 spacing declarations onto ten tokens;
+204 font sizes onto nine.
+
+**Contrast.** `--honey-deep` `#8A6A1F` → `#806116`, `--clay` `#B4552F` →
+`#9D4526`. Both now clear 4.5:1 on every background in use.
+
+**Safe area.** `viewport-fit=cover` and `env(safe-area-inset-bottom)` on every
+fixed bar. `100dvh` fallbacks for all six `100vh` declarations.
+
+**34 native dialogs → one in-app sheet.** Cancelling a visit now has a labelled
+reason field; rescheduling has a native date picker instead of a `prompt()`
+asking for `YYYY-MM-DD`.
+
+**Schedule grouping.** Needs attention / Today / Upcoming / Done. Completed
+visits no longer offer Cancel.
+
+**Payments, step 1.** Card on file for Moms, charge on Mark done. Three Netlify
+functions, no service-role key, amount computed server-side, idempotent by visit
+id.
+
+## Mistakes made along the way
+
+**A migration that silently broke every directional margin.** The longhand pass
+matched `(padding|margin)-(top|right|bottom|left)` and rebuilt the declaration
+from the first capture group only, dropping the direction — `margin-bottom:28px`
+became `margin:var(--s6)`, applying 24px on all four sides across 129
+declarations. It shipped. It passed a JS syntax check, a "no raw px remain"
+check, and a "every var resolves" check, because the output was valid CSS that
+was simply wrong. Nothing compared a sample rule to its original.
+
+**A finding that wasn't real.** LO-7 recorded the primary CTA as 37px
+off-centre. The button was fine; the whole footer had collapsed to 197px because
+`.nav` was `display:flex` and its child shrank to content. Two attempted fixes
+made it worse before anyone looked at the parent.
+
+**Two counts stated with more confidence than they deserved.** "37 uses of gold
+as text" also matched `border-color`; the real number was 5, plus 16 eyebrows.
+"354 spacing declarations" missed every directional longhand; the real number
+was 483.
+
+**A cause asserted without checking.** TY-1 blamed `em` compounding through
+nested containers. One command showed 237 `rem`, zero `em`, and no
+`html{font-size}` override. `14.72px` was just `0.92rem`, chosen by eye.
+
+**Live Stripe keys in a test integration.** `pk_live_` and `sk_live_` were
+configured while the code was in test mode, and a real Stripe customer was
+created against the live account. Caught before a card was attached, so no money
+moved. Had it not been caught, the first "Mark done" would have charged a real
+card $84.
+
+The pattern in all five: each was verifiable in one command, and in each case a
+plausible-sounding explanation was offered instead. Check the container before
+fixing the child; count with a regex that excludes the near-miss; read the key
+prefix before trusting the mode.
