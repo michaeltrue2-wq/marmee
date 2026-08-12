@@ -32,9 +32,21 @@ function stripe(){
 }
 
 // Builds a Supabase client bound to the caller's token so RLS applies.
+//
+// The token may arrive in the Authorization header (same-origin calls from
+// the Mom's app) or in the JSON body as `token` (cross-origin calls from the
+// console). The second path exists because an Authorization header triggers
+// a CORS preflight, and Netlify answers OPTIONS itself without the headers
+// this function would have returned — so the browser blocks it. A POST with
+// content-type text/plain is a "simple request", needs no preflight, and the
+// Allow-Origin header on the response is enough.
 async function authed(event){
   const header = event.headers.authorization || event.headers.Authorization || '';
-  const token = header.replace(/^Bearer\s+/i, '').trim();
+  let token = header.replace(/^Bearer\s+/i, '').trim();
+
+  if(!token){
+    try{ token = (JSON.parse(event.body || '{}').token || '').trim(); }catch{ /* ignore */ }
+  }
   if(!token) return { error: json(401, { error: 'Not signed in.' }) };
 
   const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
