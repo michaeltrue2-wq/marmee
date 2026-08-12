@@ -55,7 +55,12 @@ exports.handler = async (event) => {
       metadata: { marmee_family_id: family.id }
     });
 
-    return json(200, { clientSecret: setupIntent.client_secret, customerId });
+    return json(200, {
+      clientSecret: setupIntent.client_secret,
+      customerId,
+      // Safe to send to the browser — this is the publishable key, not the secret.
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || ''
+    });
 
   }catch(e){
     console.error('stripe-setup-intent', e);
