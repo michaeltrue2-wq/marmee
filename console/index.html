@@ -307,17 +307,34 @@ async function login(){
   if(!email||!pass){ loginErr('Enter your email and password.'); return; }
   const btn=$('#loginBtn'); btn.textContent='Signing in…'; btn.disabled=true; loginErr('');
   try{
-    const { error } = await db.auth.signInWithPassword({ email, password: pass });
+    const { data, error } = await withTimeout(
+      db.auth.signInWithPassword({ email, password: pass }), 15000);
     if(error){ loginErr(error.message || 'That didn\u2019t work. Check your details.'); }
-    else { await enterApp(); }
-  }catch(e){ loginErr('Something went wrong signing in. Try again.'); }
-  btn.textContent='Sign in'; btn.disabled=false;
+    else { await withTimeout(enterApp(data && data.user), 15000); }
+  }catch(e){
+    loginErr(e && e.message === 'timeout'
+      ? 'That took too long. Check your connection and try again.'
+      : 'Something went wrong signing in. Try again.');
+  }finally{
+    btn.textContent='Sign in'; btn.disabled=false;
+  }
+}
+
+// Never let the sign-in button hang forever on a stalled request.
+function withTimeout(p, ms){
+  return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))]);
 }
 
 async function signout(){ if(db) await db.auth.signOut(); $('#shell').classList.remove('open'); $('#gate').classList.remove('hidden'); $('#pass').value=''; }
 
-async function enterApp(){
-  const { data:{ user } } = await db.auth.getUser();
+async function enterApp(signedInUser){
+  // Prefer the user object the sign-in already returned. Calling getUser()
+  // here can deadlock against the auth lock held by signInWithPassword().
+  let user = signedInUser;
+  if(!user){
+    const { data:{ session } } = await db.auth.getSession();
+    user = session && session.user;
+  }
   const email = user?.email || 'Operator';
   $('#whoName').textContent = email.split('@')[0];
   $('#whoAva').textContent = (email[0]||'·').toUpperCase();

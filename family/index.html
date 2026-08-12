@@ -167,16 +167,34 @@
     if(!email||!pass){ gerr('Enter your email and password.'); return; }
     const b=$('#loginBtn'); b.textContent='Signing in…'; b.disabled=true; gerr('');
     try{
-      const { error }=await db.auth.signInWithPassword({ email, password:pass });
+      const { data, error }=await withTimeout(
+        db.auth.signInWithPassword({ email, password:pass }), 15000);
       if(error){ gerr(error.message||'That didn\'t work — check your details.'); }
-      else{ await enter(); }
-    }catch(e){ gerr('Something went wrong. Try again.'); }
-    b.textContent='Sign in'; b.disabled=false;
+      else{ await withTimeout(enter(data&&data.user&&data.user.id), 15000); }
+    }catch(e){
+      gerr(e && e.message === 'timeout'
+        ? 'That took too long. Check your connection and try again.'
+        : 'Something went wrong. Try again.');
+    }finally{
+      b.textContent='Sign in'; b.disabled=false;
+    }
+  }
+
+  // Never let the sign-in button hang forever on a stalled request.
+  function withTimeout(p, ms){
+    return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))]);
   }
   async function signout(){ if(db) await db.auth.signOut(); location.reload(); }
 
-  async function enter(){
-    const uid=(await db.auth.getUser()).data.user.id;
+  async function enter(uid){
+    // uid comes from the sign-in response. Falling back to getSession() reads
+    // local storage instead of calling getUser(), which can deadlock against
+    // the auth lock held by signInWithPassword().
+    if(!uid){
+      const { data:{ session } } = await db.auth.getSession();
+      uid = session && session.user && session.user.id;
+    }
+    if(!uid){ gerr('Your session expired. Sign in again.'); return; }
     const { data:rows, error }=await db.from('families').select('*').eq('user_id', uid);
     if(error||!rows||!rows.length){ gerr('We couldn\'t find your account. If you just requested help, give it a moment.'); return; }
     me=rows[0];

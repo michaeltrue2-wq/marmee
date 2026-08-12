@@ -121,9 +121,12 @@ select
   u.email_confirmed_at is not null as confirmed,
   p.role,
   case
-    when m.id is not null then 'moms row: ' || coalesce(m.first_name,'?')
-    when f.id is not null then 'families row: ' || coalesce(f.name,'?')
-    else 'NO PROFILE ROW — app will reject this login'
+    when p.role = 'operator'  then 'OK — operator, console access only'
+    when m.id is not null     then 'OK — moms row: ' || coalesce(m.first_name,'?')
+    when f.id is not null     then 'OK — families row: ' || coalesce(f.name,'?')
+    when u.email_confirmed_at is null
+                              then 'BROKEN — never confirmed, cannot sign in'
+    else 'BROKEN — no profile row, app will reject this login'
   end as profile
 from auth.users u
 left join profiles p on p.id = u.id
