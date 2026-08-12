@@ -68,3 +68,4 @@ function preflight(event){
 }
 
 module.exports = { json, stripe, authed, preflight, CORS };
+// rev: body-token auth
