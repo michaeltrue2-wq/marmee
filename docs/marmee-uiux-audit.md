@@ -25,18 +25,39 @@ This is a menu, not a mandate. Veto anything — the IDs are here so you can say
 
 ## Scoreboard
 
+Everything below was found, fixed and verified live on **12 August 2026**.
+
+| Area | Finding | Severity | Status |
+|---|---|---|---|
+| Errors | Raw backend strings shown to end users | Critical | **Fixed** |
+| Auth | Signed-in-with-no-profile is an unrecoverable dead end | Critical | **Fixed** |
+| Auth | Sign-in could hang forever with no timeout | Critical | **Fixed** |
+| Spacing | 27 distinct values, 66% off any 4pt grid | High | **Fixed** |
+| Type | 43 distinct font sizes | High | **Fixed** |
+| Contrast | Gold and error text failed WCAG AA | High | **Fixed** |
+| Safe area | Zero handling in any file; fixed bars flush to viewport edge | High | **Fixed** |
+| Popups | 34 native `alert`/`prompt`/`confirm` dialogs | High | **Fixed** |
+| Schedule | Past visits shown as "Upcoming"; completed visits cancellable | High | **Fixed** |
+| Terminology | 54 strings across 5 files | High | **Fixed** |
+| Debug | Three build tags shipped to production, numbers drifted | Medium | **Fixed** |
+| Tap targets | `Available` toggle and `Save & finish later` under 44px | High | **Fixed** |
+| Layout | Wizard footer collapsed to 197px in a 390px viewport | High | **Fixed** |
+| Layout | Greeting header wrapped to three lines on every screen | High | **Fixed** |
+| Apply flow | Day chips read `M T W T F S S` — two pairs indistinguishable | High | **Fixed** |
+| Apply flow | Name validated only at the final step | Medium | **Fixed** |
+| Console | Visits could be scheduled with no time at all | High | **Fixed** |
+| Console | Operator allowlist replaces one hardcoded email | Medium | **Fixed** |
+
+### Still open
+
 | Area | Finding | Severity |
 |---|---|---|
-| Spacing | 27 distinct values, 66% off any 4pt grid | High |
-| Type | 43 distinct font sizes, most of them accidental | High |
-| Contrast | Brand gold fails WCAG AA everywhere it's used as text | High |
-| Safe area | Zero handling in any file; fixed bars flush to viewport edge | High |
-| Popups | 34 native `alert`/`prompt`/`confirm` dialogs | High |
-| Errors | Raw backend strings shown to end users | Critical |
-| Auth | Signed-in-with-no-profile is an unrecoverable dead end | Critical |
-| Schedule | Past visits shown as "Upcoming"; completed visits cancellable | High |
-| Debug | Three build tags shipped to production, with drifted numbers | Medium |
-| Terminology | **Fixed and shipped 12 Aug** — 54 strings across 5 files | Done |
+| Matching | Neighbourhood and availability are displayed but never compared — a Marm who works "Afternoons, my neighborhood only" can be matched to an evening visit across town, silently | High |
+| Vetting | The four vetting stages record your offline work; nothing sends the reference emails, the Checkr link or books the welcome call. Ticking them without doing them puts an unvetted Marm live | High |
+| Icons | Emoji used as iconography throughout — renders differently per device, and reads as unfinished against the rest of the design | Medium |
+| Imagery | No photography anywhere, in a product whose promise is a specific human being | Medium |
+| Subdomains | `moms.` serves the Marm app; `book.` serves the Mom app (TE-1) | Medium |
+| Payments | Marm payouts not built — Connect onboarding and transfers are step 2 | — |
 
 ---
 
