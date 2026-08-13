@@ -349,7 +349,7 @@ const SUBS = {
 };
 const STAGES = ['Applied','References','Background check','Welcome call'];
 
-let state = { moms:[], families:[], requests:[], visits:[], matches:[], vetting:[], markets:[], waitlist:[], messages:[] };
+let state = { moms:[], families:[], requests:[], visits:[], matches:[], vetting:[], markets:[], waitlist:[], messages:[], zips:[] };
 
 // Everything typed by hand goes through here before it reaches innerHTML.
 function esc(v){
@@ -466,7 +466,7 @@ async function must(builder, what){
 
 async function loadAll(){
   try{
-    const [m,f,r,v,mt,vg,mk,wl,ms] = await Promise.all([
+    const [m,f,r,v,mt,vg,mk,wl,ms,zc] = await Promise.all([
       db.from('moms').select('*').order('created_at',{ascending:true}),
       db.from('families').select('*').order('created_at',{ascending:true}),
       db.from('requests').select('*').order('created_at',{ascending:true}),
@@ -476,9 +476,10 @@ async function loadAll(){
       db.from('markets').select('*'),
       db.from('waitlist').select('*').order('created_at',{ascending:false}),
       db.from('messages').select('*').order('created_at',{ascending:true}),
+      db.from('zip_codes').select('zip,lat,lng'),
     ]);
     state.moms = m.data||[]; state.families=f.data||[]; state.requests=r.data||[];
-    state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[]; state.markets=mk.data||[]; state.waitlist=wl.data||[]; state.messages=ms.data||[];
+    state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[]; state.markets=mk.data||[]; state.waitlist=wl.data||[]; state.messages=ms.data||[]; state.zips=zc.data||[];
     if(m.error||f.error||r.error||v.error||mt.error||vg.error||mk.error||wl.error||ms.error){ toast('Loaded, but some data was blocked — did the access rules run?'); }
   }catch(e){ toast('Could not load data. Check your connection.'); }
 }
@@ -904,8 +905,19 @@ const TRAVEL_MILES = {
   'Up to 45 minutes':    20
 };
 
-const coordsOf = x => (x && x.lat != null && x.lng != null)
-  ? { lat: Number(x.lat), lng: Number(x.lng) } : null;
+// Coordinates come from three places, best first: what she shared with the
+// location button, then the cached centre of her postcode, then nothing.
+// Anyone who typed a ZIP rather than sharing a location lands on the second,
+// which is why that cache exists at all.
+function coordsOf(x){
+  if(!x) return null;
+  if(x.lat != null && x.lng != null) return { lat: Number(x.lat), lng: Number(x.lng) };
+  if(x.zip){
+    const z = (state.zips||[]).find(r=>r.zip === x.zip);
+    if(z && z.lat != null && z.lng != null) return { lat: Number(z.lat), lng: Number(z.lng), approx: true };
+  }
+  return null;
+}
 
 // Miles between a Marm and a household, or null when we genuinely cannot
 // say. Null must never read as "close" or as "far" — everyone who signed up
@@ -941,6 +953,9 @@ function scoreMatch(m, req, fam){
   // Distance, when we know it. Falls back to comparing the neighbourhood
   // labels for anyone who signed up before we asked where they were.
   const miles     = milesApart(m, fam);
+  // Postcode centres are a coarser answer than a shared location, and the
+  // wording should admit it rather than quote 3.2 miles like a measurement.
+  const approx    = !!((coordsOf(m)||{}).approx || (coordsOf(fam)||{}).approx);
   const willGo    = TRAVEL_MILES[m.travel_radius] ?? null;
   const sameMkt   = !!(fam && m.market_id && fam.market_id && m.market_id === fam.market_id);
   const crossMkt  = !!(fam && m.market_id && fam.market_id && m.market_id !== fam.market_id);
@@ -987,12 +1002,12 @@ function scoreMatch(m, req, fam){
     farGap = 99;
   } else if(miles !== null){
     if(willGo === null){
-      good.push(`${miles} miles away`);
+      good.push(`${approx?'about ':''}${miles} miles away`);
     } else if(miles <= willGo){
-      good.push(`${miles} miles away — inside the ${m.travel_radius.toLowerCase()} she'll travel`);
+      good.push(`${approx?'about ':''}${miles} miles away — inside the ${m.travel_radius.toLowerCase()} she'll travel`);
     } else {
       farGap = miles - willGo;
-      warn.push(`${miles} miles away — she said ${m.travel_radius.toLowerCase()}`);
+      warn.push(`${approx?'about ':''}${miles} miles away — she said ${m.travel_radius.toLowerCase()}`);
     }
   } else if(sameHood){
     good.push(`Same neighborhood — ${esc(m.neighborhood)}`);
@@ -1001,6 +1016,10 @@ function scoreMatch(m, req, fam){
   } else if(m.travel_radius){
     good.push(`Travels ${esc(m.travel_radius.toLowerCase())}`);
     if(!coordsOf(m) || !coordsOf(fam)) warn.push('No location on file for one of them — distance not checked');
+  }
+  if(miles === null && !crossMkt && (!coordsOf(m) || !coordsOf(fam))){
+    // Said once, plainly, rather than letting a silent null read as "nearby".
+    if(!warn.some(w=>/distance not checked/.test(w))) warn.push('No location on file for one of them — distance not checked');
   }
 
   // Weighting: the work matters most, then the hours, then distance.
@@ -1528,4 +1547,4 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
-<!-- build: messaging -->
+<!-- build: zip-and-icons -->
