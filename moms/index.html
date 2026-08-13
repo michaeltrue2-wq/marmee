@@ -331,7 +331,14 @@
 <script>
   const SUPABASE_URL = 'https://dlargnwijzrlruaxzsgj.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
+  // Fallback only. Her real rate comes from her market, so a Marm in a
+  // costlier city is not quietly told she earns Portland money.
   const RATE = 28;
+  let MARKET = null;
+  const myRate = () => {
+    const c = MARKET && Number(MARKET.hourly_rate_cents);
+    return (c && isFinite(c)) ? c/100 : RATE;
+  };
   const PLATFORM_FEE = 0.15;   // matches the console and the charge function
 
   // What she is actually owed for a visit, from what was actually collected.
@@ -342,7 +349,7 @@
       return (v.amount_cents / 100) * (1 - PLATFORM_FEE);
     }
     if(v.payment_status === 'failed' || v.payment_status === 'processing') return 0;
-    return (Number(v.hours)||0) * (Number(v.rate)||RATE) * (1 - PLATFORM_FEE);
+    return (Number(v.hours)||0) * (Number(v.rate)||myRate()) * (1 - PLATFORM_FEE);
   }
   const isPaid    = v => v.payment_status === 'paid';
   const isPending = v => v.status === 'completed' && v.payment_status !== 'paid';
@@ -456,6 +463,14 @@
       return;
     }
     me = rows[0];
+
+    // Her market sets her hourly rate. Read it before anything renders a
+    // number, or the earnings screen quotes Portland's rate to everyone.
+    if(me.market_id){
+      const { data: mk } = await db.from('markets').select('*').eq('id', me.market_id).limit(1);
+      MARKET = (mk && mk[0]) || null;
+    }
+
     $('#gate').classList.add('hidden');
     if(me.status !== 'active'){ showVetting(); return; }
     // active: load visits + her families
@@ -732,7 +747,7 @@
       <div class="ebig"><div class="ek">Paid to you</div><div class="ev">$${total.toFixed(2).replace(/\.00$/,'')}</div><div class="es">across ${paid.length} visit${paid.length===1?'':'s'}</div></div>
       ${pendingBlock}
       <div class="section-t">Paid visits</div>${rows}
-      <div class="reassure"><span class="ri">🌿</span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${RATE}/hour</b>, and Marmee keeps ${Math.round(PLATFORM_FEE*100)}%.</div></div>`;
+      <div class="reassure"><span class="ri">🌿</span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${myRate()}/hour</b>, and Marmee keeps ${Math.round(PLATFORM_FEE*100)}%.</div></div>`;
   }
 
   function pickAvatar(){ document.getElementById('avaFile').click(); }
@@ -974,4 +989,4 @@ async function resendConfirm(){
 </div>
 </body>
 </html>
-<!-- build: 20260813T164626Z -->
+<!-- build: 20260813T185241Z -->

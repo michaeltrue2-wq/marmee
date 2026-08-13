@@ -78,7 +78,7 @@ exports.handler = async (event) => {
 
     const { data: fams } = await db
       .from('families')
-      .select('id, name, stripe_customer_id, payment_method_id')
+      .select('id, name, market_id, stripe_customer_id, payment_method_id')
       .eq('id', visit.family_id)
       .limit(1);
 
@@ -90,10 +90,22 @@ exports.handler = async (event) => {
 
     const hours = Number(visit.hours) || 0;
 
-    // `Number(visit.rate) || DEFAULT_RATE` turned a deliberate rate of 0 — a
-    // comped visit, a make-good — into a full-price $28/hr charge, because
-    // 0 is falsy. Only a missing rate should fall back.
-    const rate = (visit.rate === null || visit.rate === undefined) ? DEFAULT_RATE : Number(visit.rate);
+    // The fallback rate belongs to this household's market, not to Portland.
+    // A visit almost always carries its own rate, so this only matters for
+    // rows written before markets existed — but getting it wrong would mean
+    // charging a Boston household Maine prices, silently.
+    let fallbackRate = DEFAULT_RATE;
+    if(family.market_id){
+      const { data: mk } = await db
+        .from('markets').select('hourly_rate_cents').eq('id', family.market_id).limit(1);
+      const cents = mk && mk[0] && Number(mk[0].hourly_rate_cents);
+      if(cents && isFinite(cents)) fallbackRate = cents / 100;
+    }
+
+    // `Number(visit.rate) || fallbackRate` turned a deliberate rate of 0 — a
+    // comped visit, a make-good — into a full-price charge, because 0 is
+    // falsy. Only a missing rate should fall back.
+    const rate = (visit.rate === null || visit.rate === undefined) ? fallbackRate : Number(visit.rate);
     if(!Number.isFinite(rate) || rate < 0){
       return json(400, { error: 'That visit has an unreadable hourly rate. Fix the rate before charging.' });
     }
