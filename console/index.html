@@ -283,6 +283,7 @@
       <div class="view" id="view-schedule"></div>
       <div class="view" id="view-waitlist"></div>
       <div class="view" id="view-messages"></div>
+      <div class="view" id="view-coverage"></div>
       <div class="demo-note" id="demoNote">Live · saved to your Marmee database.</div>
     </div>
   </div>
@@ -336,6 +337,7 @@ const NAV = [
   {id:'families', ic:'♡', label:'Moms'},
   {id:'schedule', ic:'▤', label:'Schedule'},
   {id:'waitlist', ic:'◷', label:'Waitlist'},
+  {id:'coverage', ic:'◈', label:'Coverage'},
   {id:'messages', ic:'✉', label:'Messages'},
 ];
 const SUBS = {
@@ -345,11 +347,12 @@ const SUBS = {
   families:'The Moms you serve.',
   schedule:'Overdue first, then today, then what is coming.',
   waitlist:'People asking for Marmee where we have not opened yet.',
+  coverage:'Where you actually have Marms, town by town.',
   messages:'Conversations between your Marms and your Moms.',
 };
 const STAGES = ['Applied','References','Background check','Welcome call'];
 
-let state = { moms:[], families:[], requests:[], visits:[], matches:[], vetting:[], markets:[], waitlist:[], messages:[], zips:[] };
+let state = { moms:[], families:[], requests:[], visits:[], matches:[], vetting:[], markets:[], waitlist:[], messages:[], zips:[], hoods:[] };
 
 // Everything typed by hand goes through here before it reaches innerHTML.
 function esc(v){
@@ -466,7 +469,7 @@ async function must(builder, what){
 
 async function loadAll(){
   try{
-    const [m,f,r,v,mt,vg,mk,wl,ms,zc] = await Promise.all([
+    const [m,f,r,v,mt,vg,mk,wl,ms,zc,nb] = await Promise.all([
       db.from('moms').select('*').order('created_at',{ascending:true}),
       db.from('families').select('*').order('created_at',{ascending:true}),
       db.from('requests').select('*').order('created_at',{ascending:true}),
@@ -477,9 +480,10 @@ async function loadAll(){
       db.from('waitlist').select('*').order('created_at',{ascending:false}),
       db.from('messages').select('*').order('created_at',{ascending:true}),
       db.from('zip_codes').select('zip,lat,lng'),
+      db.from('neighborhoods').select('*').order('name'),
     ]);
     state.moms = m.data||[]; state.families=f.data||[]; state.requests=r.data||[];
-    state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[]; state.markets=mk.data||[]; state.waitlist=wl.data||[]; state.messages=ms.data||[]; state.zips=zc.data||[];
+    state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[]; state.markets=mk.data||[]; state.waitlist=wl.data||[]; state.messages=ms.data||[]; state.zips=zc.data||[]; state.hoods=nb.data||[];
     if(m.error||f.error||r.error||v.error||mt.error||vg.error||mk.error||wl.error||ms.error){ toast('Loaded, but some data was blocked — did the access rules run?'); }
   }catch(e){ toast('Could not load data. Check your connection.'); }
 }
@@ -518,7 +522,104 @@ function go(id, focusId){
 function toggleSide(){ $('#side').classList.toggle('show'); }
 
 /* ================= RENDER ================= */
-function renderAll(){ buildNav(); renderOverview(); renderRequests(); renderMoms(); renderFamilies(); renderSchedule(); renderWaitlist(); renderMessages(); }
+function renderAll(){ buildNav(); renderOverview(); renderRequests(); renderMoms(); renderFamilies(); renderSchedule(); renderWaitlist(); renderMessages(); renderCoverage(); }
+
+// "Greater Portland is live" is one fact covering twenty-three towns. Six
+// Marms all on the peninsula and a Mom in Gorham gets told we are here, then
+// waits three weeks. This is the number that decides whether that happens:
+// supply and demand side by side, town by town, gaps first.
+const CV = { GAP:'gap', THIN:'thin', OK:'ok', QUIET:'quiet' };
+
+function coverageRows(){
+  const norm = x => String(x||'').trim().toLowerCase();
+  const hoods = (state.hoods||[]).map(h=>h.name);
+
+  // Any place someone actually wrote counts, even if it is not on our list —
+  // otherwise a town we forgot to seed looks like it has nobody in it.
+  const extra = [...new Set(
+    [...state.moms, ...state.families].map(x=>x.neighborhood).filter(Boolean)
+  )].filter(n => !hoods.some(h => norm(h) === norm(n)));
+
+  return [...hoods, ...extra].map(name => {
+    const marms = state.moms.filter(m => norm(m.neighborhood) === norm(name));
+    const active = marms.filter(m => m.status === 'active').length;
+    const vetting = marms.length - active;
+    const moms = state.families.filter(f => norm(f.neighborhood) === norm(name)).length;
+
+    let state_ = CV.QUIET;
+    if(moms > 0 && active === 0)      state_ = CV.GAP;
+    else if(active === 1)             state_ = CV.THIN;
+    else if(active >= 2)              state_ = CV.OK;
+
+    return { name, active, vetting, moms, state: state_,
+             onList: hoods.some(h => norm(h) === norm(name)) };
+  }).sort((a,b) => {
+    const rank = { [CV.GAP]:0, [CV.THIN]:1, [CV.OK]:2, [CV.QUIET]:3 };
+    return rank[a.state] - rank[b.state]
+        || (b.moms - a.moms)
+        || a.name.localeCompare(b.name);
+  });
+}
+
+function renderCoverage(){
+  const rows = coverageRows();
+  const gaps  = rows.filter(r=>r.state===CV.GAP);
+  const thin  = rows.filter(r=>r.state===CV.THIN);
+  const ok    = rows.filter(r=>r.state===CV.OK);
+  const quiet = rows.filter(r=>r.state===CV.QUIET);
+  const mk    = (state.markets||[])[0];
+  const need  = mk ? Number(mk.launch_min_marms||0) : 0;
+  const activeTotal = activeMoms().length;
+
+  let html = `<div class="stat-row">
+    <div class="stat ${gaps.length?'alert':''}"><div class="k">Towns with a gap</div><div class="v mono-num">${gaps.length}</div></div>
+    <div class="stat"><div class="k">Covered</div><div class="v mono-num">${ok.length}</div></div>
+    <div class="stat"><div class="k">One Marm only</div><div class="v mono-num">${thin.length}</div></div>
+    <div class="stat"><div class="k">Nobody yet</div><div class="v mono-num">${quiet.length}</div></div>
+  </div>`;
+
+  if(mk && need){
+    const short = Math.max(0, need - activeTotal);
+    html += `<div class="panel"><div class="panel-head"><h3>${esc(mk.name)}</h3>
+      <span class="count">${esc(mk.status)}</span></div>
+      <div class="row"><div class="rmain">
+        <div class="name">${activeTotal} active Marm${activeTotal===1?'':'s'} · you set the bar at ${need}</div>
+        <div class="meta">${short
+          ? `<span style="color:var(--clay);font-weight:600">${short} short of the number you decided a market needs before it should be live.</span>`
+          : 'At or above the number you decided a market needs before it should be live.'}</div>
+      </div></div></div>`;
+  }
+
+  const label = {
+    [CV.GAP]:   ['Gap', 'open'],
+    [CV.THIN]:  ['One Marm', 'wait'],
+    [CV.OK]:    ['Covered', 'good'],
+    [CV.QUIET]: ['Nobody yet', 'wait']
+  };
+
+  html += `<div class="panel"><div class="panel-head"><h3>Town by town</h3>
+    <span class="count">${rows.length} town${rows.length===1?'':'s'}</span></div>`;
+
+  if(!rows.length){
+    html += `<div class="empty"><b>No towns yet</b>Seed the neighbourhood list for this market and people will appear here.</div>`;
+  } else {
+    rows.forEach(r=>{
+      const [txt, pill] = label[r.state];
+      const bar = r.state===CV.GAP ? 'var(--clay)'
+                : r.state===CV.THIN ? 'var(--honey)'
+                : r.state===CV.OK ? 'var(--pine)' : 'var(--line)';
+      html += `<div class="row" style="border-left:3px solid ${bar};padding-left:var(--s4)">
+        <div class="rmain">
+          <div class="name">${esc(r.name)} <span class="pill ${pill}">${txt}</span>
+            ${r.onList?'':'<span class="pill wait">not on the list</span>'}</div>
+          <div class="meta">${r.active} Marm${r.active===1?'':'s'}${r.vetting?(' · '+r.vetting+' in vetting'):''} · ${r.moms} Mom${r.moms===1?'':'s'}</div>
+          ${r.state===CV.GAP?`<div class="meta" style="color:var(--clay);font-weight:600;margin-top:var(--s1)">${r.moms} household${r.moms===1?'':'s'} here and nobody to send.</div>`:''}
+        </div></div>`;
+    });
+  }
+  html += `</div>`;
+  $('#view-coverage').innerHTML = html;
+}
 
 // You can read every conversation, and both apps tell people so. That
 // promise is only honest if there is somewhere to actually read them —
@@ -1547,4 +1648,4 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
-<!-- build: zip-and-icons -->
+<!-- build: coverage -->

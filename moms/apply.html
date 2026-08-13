@@ -279,7 +279,9 @@
     </div>
     <div class="field">
       <label class="fl">Your neighborhood <span class="opt">&mdash; optional</span></label>
-      <input type="text" id="hoodTxt" placeholder="Munjoy Hill, the West End&hellip;">
+      <input type="text" id="hoodTxt" list="hoodList" autocomplete="off"
+             placeholder="Start typing&hellip;">
+      <datalist id="hoodList"></datalist>
     </div>
 
     <div class="field">
@@ -741,9 +743,25 @@ async function coordsForZip(z){
 }
 const GEOCODE_URL = 'https://book.hiremarmee.com/.netlify/functions/geocode-zip';
 
+// The neighbourhood list belongs to the market, so it fills in once we know
+// where she is. Typed free text made "Munjoy Hill", "munjoy" and "Munjoy hill"
+// three different places; a datalist suggests the real ones while still
+// allowing anything, which matters in a metro whose list we have not built.
+async function loadHoods(marketId){
+  const dl = document.getElementById('hoodList');
+  if(!dl || !marketId) return;
+  try{
+    const { data, error } = await db.from('neighborhoods')
+      .select('name').eq('market_id', marketId).order('name');
+    if(error || !data) return;
+    dl.innerHTML = data.map(n => `<option value="${String(n.name).replace(/"/g,'&quot;')}">`).join('');
+  }catch(e){}
+}
+
 async function settleMarket(m, where){
   if(m && m.status === 'live'){
     LOC.market = m;
+    loadHoods(m.id);
     showWaitlist(false);
     locSay(`&#10003; ${m.name} &mdash; that’s us. <span style="font-weight:400;color:var(--muted)">Not right? Type your ZIP above.</span>`, 'ok');
     return true;
