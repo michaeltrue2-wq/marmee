@@ -24,6 +24,7 @@
 //  and matching falls back to neighbourhood names as it does today.
 // ============================================================
 
+const https = require('https');
 const { createClient } = require('@supabase/supabase-js');
 const { CORS } = require('./_shared');
 
@@ -43,43 +44,67 @@ function admin(){
   );
 }
 
-async function fetchJson(url, ms){
-  const ctl = new AbortController();
-  const t = setTimeout(()=>ctl.abort(), ms || 4000);
-  try{
-    const r = await fetch(url, {
-      signal: ctl.signal,
-      headers: { 'User-Agent': 'Marmee/1.0 (hiremarmee.com)' }
-    });
-    if(!r.ok) return null;
-    return await r.json();
-  }catch(e){ return null; }
-  finally{ clearTimeout(t); }
+// Netlify's Node runtime does not reliably provide a global fetch, and when
+// it is missing the call throws instantly and looks exactly like "the ZIP is
+// unknown". node:https is present on every version. One redirect hop is
+// followed because both providers use them.
+function fetchJson(url, ms, hops){
+  return new Promise(resolve => {
+    let done = false;
+    const finish = v => { if(!done){ done = true; resolve(v); } };
+    let req;
+    try{
+      req = https.get(url, {
+        headers: { 'User-Agent': 'Marmee/1.0 (hiremarmee.com)', 'Accept': 'application/json' }
+      }, res => {
+        const code = res.statusCode || 0;
+        if(code >= 300 && code < 400 && res.headers.location && (hops||0) < 2){
+          res.resume();
+          return finish(fetchJson(res.headers.location, ms, (hops||0)+1));
+        }
+        if(code < 200 || code >= 300){ res.resume(); return finish({ err: 'status ' + code }); }
+        let buf = '';
+        res.setEncoding('utf8');
+        res.on('data', d => { buf += d; if(buf.length > 200000) req.destroy(); });
+        res.on('end', () => {
+          try{ finish({ data: JSON.parse(buf) }); }
+          catch(e){ finish({ err: 'unparseable response' }); }
+        });
+      });
+    }catch(e){ return finish({ err: 'request failed: ' + e.message }); }
+
+    req.setTimeout(ms || 4000, () => { req.destroy(); finish({ err: 'timeout' }); });
+    req.on('error', e => finish({ err: e.message }));
+  });
 }
 
-// Two independent sources. Neither needs an API key. If the first is down
-// or has never heard of the postcode, the second gets a turn.
+// Two independent sources. Neither needs an API key. If the first is down or
+// has never heard of the postcode, the second gets a turn. The reason each
+// one failed is carried back so a silent "unknown" can be diagnosed.
 async function lookup(zip){
-  const zp = await fetchJson(`https://api.zippopotam.us/us/${zip}`);
-  const place = zp && Array.isArray(zp.places) && zp.places[0];
-  if(place && place.latitude && place.longitude){
-    return {
-      lat: Number(place.latitude),
-      lng: Number(place.longitude),
-      city: place['place name'] || null,
-      state: place['state abbreviation'] || null
-    };
-  }
+  const why = [];
 
-  const nom = await fetchJson(
-    `https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=us&format=json&limit=1`
+  const a = await fetchJson('https://api.zippopotam.us/us/' + zip);
+  if(a.err) why.push('zippopotam: ' + a.err);
+  const place = a.data && Array.isArray(a.data.places) && a.data.places[0];
+  if(place && place.latitude && place.longitude){
+    return { lat: Number(place.latitude), lng: Number(place.longitude),
+             city: place['place name'] || null,
+             state: place['state abbreviation'] || null };
+  }
+  if(a.data && !place) why.push('zippopotam: no places');
+
+  const b = await fetchJson(
+    'https://nominatim.openstreetmap.org/search?postalcode=' + zip + '&country=us&format=json&limit=1'
   );
-  const hit = Array.isArray(nom) && nom[0];
+  if(b.err) why.push('nominatim: ' + b.err);
+  const hit = Array.isArray(b.data) && b.data[0];
   if(hit && hit.lat && hit.lon){
     return { lat: Number(hit.lat), lng: Number(hit.lon), city: null, state: null };
   }
+  if(b.data && !hit) why.push('nominatim: no match');
 
-  return null;
+  return { failed: true, why: why.join('; ') || 'no result' };
 }
 
 exports.handler = async (event) => {
@@ -102,10 +127,12 @@ exports.handler = async (event) => {
     }
 
     const found = await lookup(zip);
-    if(!found){
+    if(!found || found.failed){
       // Say so plainly rather than pretending. The caller carries on without
-      // coordinates; it is a worse match, not a broken sign-up.
-      return reply(200, { zip, lat: null, lng: null, unknown: true });
+      // coordinates; it is a worse match, not a broken sign-up. `why` is what
+      // turns a silent failure into a fixable one.
+      console.error('geocode-zip unknown', zip, found && found.why);
+      return reply(200, { zip, lat: null, lng: null, unknown: true, why: found && found.why });
     }
 
     const { error: upErr } = await db.from('zip_codes').upsert({
