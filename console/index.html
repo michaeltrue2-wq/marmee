@@ -79,7 +79,9 @@
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
   /* ===== CARDS / PRIMITIVES ===== */
-  .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s3);margin-bottom:var(--s7)}
+  /* Was repeat(5,1fr) with seven stats, so the last two wrapped alone and
+     stretched to a fifth of the width. auto-fit keeps them even at any count. */
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s3);margin-bottom:var(--s7)}
   .stat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:var(--s4) var(--s4) var(--s4)}
   .stat .k{font-size:var(--t-xs);letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:var(--s2);line-height:1.3;min-height:2.2em}
   .stat .v{font-size:var(--t-4xl);color:var(--pine);line-height:1}
@@ -279,6 +281,7 @@
       <div class="view" id="view-moms"></div>
       <div class="view" id="view-families"></div>
       <div class="view" id="view-schedule"></div>
+      <div class="view" id="view-waitlist"></div>
       <div class="demo-note" id="demoNote">Live · saved to your Marmee database.</div>
     </div>
   </div>
@@ -331,6 +334,7 @@ const NAV = [
   {id:'moms',     ic:'❖', label:'Marms'},
   {id:'families', ic:'♡', label:'Moms'},
   {id:'schedule', ic:'▤', label:'Schedule'},
+  {id:'waitlist', ic:'◷', label:'Waitlist'},
 ];
 const SUBS = {
   overview:'A quick read on the beta this week.',
@@ -338,10 +342,11 @@ const SUBS = {
   moms:'Your Marm roster and everyone in vetting.',
   families:'The Moms you serve.',
   schedule:'Overdue first, then today, then what is coming.',
+  waitlist:'People asking for Marmee where we have not opened yet.',
 };
 const STAGES = ['Applied','References','Background check','Welcome call'];
 
-let state = { moms:[], families:[], requests:[], visits:[], matches:[], vetting:[], markets:[] };
+let state = { moms:[], families:[], requests:[], visits:[], matches:[], vetting:[], markets:[], waitlist:[] };
 
 // Everything typed by hand goes through here before it reaches innerHTML.
 function esc(v){
@@ -458,7 +463,7 @@ async function must(builder, what){
 
 async function loadAll(){
   try{
-    const [m,f,r,v,mt,vg,mk] = await Promise.all([
+    const [m,f,r,v,mt,vg,mk,wl] = await Promise.all([
       db.from('moms').select('*').order('created_at',{ascending:true}),
       db.from('families').select('*').order('created_at',{ascending:true}),
       db.from('requests').select('*').order('created_at',{ascending:true}),
@@ -466,10 +471,11 @@ async function loadAll(){
       db.from('matches').select('*'),
       db.from('vetting_log').select('*').order('completed_at',{ascending:true}),
       db.from('markets').select('*'),
+      db.from('waitlist').select('*').order('created_at',{ascending:false}),
     ]);
     state.moms = m.data||[]; state.families=f.data||[]; state.requests=r.data||[];
-    state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[]; state.markets=mk.data||[];
-    if(m.error||f.error||r.error||v.error||mt.error||vg.error||mk.error){ toast('Loaded, but some data was blocked — did the access rules run?'); }
+    state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[]; state.markets=mk.data||[]; state.waitlist=wl.data||[];
+    if(m.error||f.error||r.error||v.error||mt.error||vg.error||mk.error||wl.error){ toast('Loaded, but some data was blocked — did the access rules run?'); }
   }catch(e){ toast('Could not load data. Check your connection.'); }
 }
 
@@ -507,7 +513,55 @@ function go(id, focusId){
 function toggleSide(){ $('#side').classList.toggle('show'); }
 
 /* ================= RENDER ================= */
-function renderAll(){ buildNav(); renderOverview(); renderRequests(); renderMoms(); renderFamilies(); renderSchedule(); }
+function renderAll(){ buildNav(); renderOverview(); renderRequests(); renderMoms(); renderFamilies(); renderSchedule(); renderWaitlist(); }
+
+// Where people are asking for Marmee that we have not opened. This is the
+// only honest answer to "which city next" — grouped by ZIP so a cluster of
+// eight in one postcode reads differently from eight scattered across a state.
+function renderWaitlist(){
+  const rows = state.waitlist || [];
+  const byZip = {};
+  rows.forEach(w=>{
+    const z = w.zip || 'No ZIP given';
+    (byZip[z] = byZip[z] || []).push(w);
+  });
+  const groups = Object.entries(byZip).sort((a,b)=> b[1].length - a[1].length);
+
+  const moms  = rows.filter(w=>w.side==='mom').length;
+  const marms = rows.filter(w=>w.side==='marm').length;
+
+  let html = `<div class="stat-row">
+    <div class="stat"><div class="k">Waiting</div><div class="v mono-num">${rows.length}</div></div>
+    <div class="stat"><div class="k">Moms wanting help</div><div class="v mono-num">${moms}</div></div>
+    <div class="stat"><div class="k">Marms wanting work</div><div class="v mono-num">${marms}</div></div>
+    <div class="stat"><div class="k">Postcodes</div><div class="v mono-num">${groups.filter(g=>g[0]!=='No ZIP given').length}</div></div>
+  </div>`;
+
+  html += `<div class="panel"><div class="panel-head"><h3>By postcode</h3>
+    <span class="count">${groups.length} area${groups.length===1?'':'s'}</span></div>`;
+
+  if(!rows.length){
+    html += `<div class="empty"><b>Nobody waiting yet</b>When someone enters a ZIP we do not cover, they land here.</div>`;
+  } else {
+    groups.forEach(([zip, list])=>{
+      const m2 = list.filter(w=>w.side==='mom').length;
+      const k2 = list.filter(w=>w.side==='marm').length;
+      html += `<div class="row" style="align-items:flex-start">
+        <div class="avatar pine">${esc(zip.slice(0,3))}</div>
+        <div class="rmain">
+          <div class="name">${esc(zip)} <span class="pill ${list.length>=5?'open':'wait'}">${list.length} waiting</span></div>
+          <div class="meta">${m2} Mom${m2===1?'':'s'} · ${k2} Marm${k2===1?'':'s'}</div>
+          <div class="vetlog">${list.slice(0,8).map(w=>
+            `<div class="vetrow"><b>${w.side==='mom'?'Mom':'Marm'}</b> — ${esc(w.email)}
+             <span class="vetwhen">${fmtDay(w.created_at)}</span></div>`).join('')}
+            ${list.length>8?`<div class="vetrow"><span class="vetwhen">and ${list.length-8} more</span></div>`:''}
+          </div>
+        </div></div>`;
+    });
+  }
+  html += `</div>`;
+  $('#view-waitlist').innerHTML = html;
+}
 
 function renderOverview(){
   const upcoming = state.visits.filter(v=>v.status==='upcoming'||v.status==='confirmed');
@@ -529,11 +583,15 @@ function renderOverview(){
     {k:'Upcoming visits', v:upcoming.length},
     {k:'Your cut, collected', v:`<small>$</small>${Math.round(collected*FEE)}`},
     {k:'Uncollected', v:`<small>$</small>${Math.round(outstanding)}`, alert: outstanding > 0},
+    // Was computed and thrown away. A household with no card cannot be
+    // charged, so this is the number that quietly caps your revenue.
+    {k:'No card on file', v:noCard, alert: noCard > 0},
   ];
   let attn='';
   const oreq=openReqs(), pmoms=pendingMoms();
-  if(!oreq.length && !pmoms.length){
-    attn = `<div class="empty"><b>All caught up</b>No open requests and no one waiting in vetting.</div>`;
+  const nocardFams = state.families.filter(f=>!f.payment_method_id);
+  if(!oreq.length && !pmoms.length && !nocardFams.length){
+    attn = `<div class="empty"><b>All caught up</b>No open requests, nobody waiting in vetting, and every household has a card.</div>`;
   } else {
     oreq.forEach(r=>{
       attn += `<div class="row">
@@ -542,8 +600,18 @@ function renderOverview(){
           <div class="meta">${esc(r.frequency||'')} · ${esc(famById(r.family_id)?.neighborhood||'')} · ${esc(arr(r.areas).join(', '))}</div></div>
         <button class="act honey" onclick="openMatch('${r.id}')">Assign</button></div>`;
     });
+    state.families.filter(f=>!f.payment_method_id).forEach(f=>{
+      attn += `<div class="row">
+        <div class="avatar pine">${initials(famNameRaw(f.id))}</div>
+        <div class="rmain"><div class="name">${esc(f.name||'')} <span class="pill wait">No card</span></div>
+          <div class="meta">Visits for this household cannot be charged until she adds one.</div></div>
+        <button class="act" onclick="go('families','${f.id}')">Open</button></div>`;
+    });
     pmoms.forEach(m=>{
-      const stg = STAGES[m.vetting_stage] || 'Ready';
+      // STAGES[vetting_stage] is the step just completed. The Marms tab
+      // already shows the next one, and the two disagreeing on the same
+      // person is how you lose track of where someone actually is.
+      const stg = STAGES[(m.vetting_stage||0) + 1] || 'Ready to activate';
       attn += `<div class="row">
         <div class="avatar">${initials(momNameRaw(m))}</div>
         <div class="rmain"><div class="name">${momName(m)} <span class="pill wait">In vetting</span></div>
@@ -556,7 +624,7 @@ function renderOverview(){
       ${stats.map(s=>`<div class="stat ${s.alert?'alert':''}"><div class="k">${s.k}</div><div class="v mono-num">${s.v}</div></div>`).join('')}
     </div>
     <div class="panel">
-      <div class="panel-head"><h3>Needs your attention</h3><span class="count">${oreq.length+pmoms.length} item${oreq.length+pmoms.length===1?'':'s'}</span></div>
+      <div class="panel-head"><h3>Needs your attention</h3><span class="count">${oreq.length+pmoms.length+nocardFams.length} item${(oreq.length+pmoms.length+nocardFams.length)===1?'':'s'}</span></div>
       ${attn}
     </div>`;
 }
@@ -682,7 +750,7 @@ function renderFamilies(){
 function renderSchedule(){
   const today = todayLocal();
   const vis = [...state.visits].filter(v=>v.status!=='cancelled')
-    .sort((a,b)=> (a.visit_date||'zzzz').localeCompare(b.visit_date||'zzzz') || (a.visit_time||'').localeCompare(b.visit_time||''));
+    .sort((a,b)=> (a.visit_date||'zzzz').localeCompare(b.visit_date||'zzzz') || (minsOfDay(a.visit_time) - minsOfDay(b.visit_time)));
   let html = `<button class="sched-add" onclick="openScheduler()">＋ Schedule a visit</button>`;
   if(!vis.length){ html += `<div class="panel"><div class="empty"><b>No visits scheduled</b>Match a Mom, then schedule their visits here.</div></div>`; }
 
@@ -927,6 +995,19 @@ function openMatch(rid){
 }
 function setTime(v){ const el=$('#svTime'); if(el){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); } showSeriesEnd(); }
 
+// Visit times are stored the way they read — "9:00a", "1:00p". Sorting those
+// as strings puts 1:00p before 10:00a before 8:00a, so an early visit sat
+// below an afternoon one every day. Sort on minutes instead.
+function minsOfDay(t){
+  if(!t) return 9999;                       // unscheduled sinks to the bottom
+  const m = String(t).trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])?/);
+  if(!m) return 9999;
+  let h = Number(m[1]) % 12;
+  if(m[3] === 'p') h += 12;
+  if(!m[3] && Number(m[1]) === 12) h = 12;  // bare "12:00" reads as noon
+  return h * 60 + Number(m[2] || 0);
+}
+
 // Turn 24h "09:00" into "9:00a" for display, matching how visits read elsewhere.
 function to12h(v){
   if(!v) return null;
@@ -1079,7 +1160,7 @@ async function retryCharge(id){
   try{
     toast('Trying the card…');
     const s = (await db.auth.getSession()).data.session;
-    const r = await fetch('https://book.hiremarmee.com/.netlify/functions/stripe-charge-visit', {
+    const r = await fetch('/api/stripe-charge-visit', {
       method:'POST', headers:{ 'content-type':'text/plain' },
       body: JSON.stringify({ token: s.access_token, visitId: id })
     });
@@ -1104,7 +1185,7 @@ async function refundVisit(id){
 
   try{
     const s = (await db.auth.getSession()).data.session;
-    const r = await fetch('https://book.hiremarmee.com/.netlify/functions/stripe-refund-visit', {
+    const r = await fetch('/api/stripe-refund-visit', {
       method:'POST',
       headers:{ 'content-type':'text/plain' },
       body: JSON.stringify({ token: s.access_token, visitId: id })
@@ -1175,7 +1256,7 @@ async function completeVisit(id){
     toast('Taking payment…');
 
     const s = (await db.auth.getSession()).data.session;
-    const res = await fetch('https://book.hiremarmee.com/.netlify/functions/stripe-charge-visit', {
+    const res = await fetch('/api/stripe-charge-visit', {
       method:'POST',
       headers:{ 'content-type':'text/plain' },          // text/plain avoids the CORS preflight
       body: JSON.stringify({ token: s.access_token, visitId: id })
@@ -1393,4 +1474,4 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
-<!-- build: 20260813T185241Z -->
+<!-- build: bugbatch -->
