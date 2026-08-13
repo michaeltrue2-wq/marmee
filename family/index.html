@@ -107,6 +107,16 @@
   .chat-foot input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
   .chat-foot button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 var(--s5);font-family:inherit;font-weight:700;cursor:pointer}
   .chat{position:fixed;inset:0;z-index:300;background:var(--ivory);display:none;flex-direction:column}
+  /* ---- Messaging: disclosure, unread, delivery state ------------------ */
+  .chat-note{background:var(--ivory-dim);color:var(--muted);font-family:'Hanken Grotesk',system-ui,sans-serif;
+    font-size:var(--t-sm);font-weight:500;padding:var(--s2) var(--s4);text-align:center;flex-shrink:0;line-height:1.4}
+  .chat-err{background:var(--clay);color:#fff;font-family:'Hanken Grotesk',system-ui,sans-serif;
+    font-size:var(--t-sm);font-weight:600;padding:var(--s2) var(--s4);text-align:center;flex-shrink:0;display:none}
+  .chat-err.on{display:block}
+  .bubble.pending{opacity:.55}
+  .unread{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;
+    border-radius:100px;background:var(--clay);color:#fff;font-size:var(--t-xs);font-weight:700;margin-left:var(--s2)}
+
   .chat.on{display:flex}
   .chat-head{background:var(--pine);color:var(--ivory);padding:var(--s4) var(--s4);display:flex;align-items:center;gap:var(--s3);font-family:'Fraunces',serif;font-size:var(--t-lg);font-weight:600;flex-shrink:0}
   .chat-back{background:rgba(246,241,231,.15);border:none;color:var(--ivory);width:34px;height:34px;border-radius:50%;font-size:var(--t-xl);cursor:pointer}
@@ -213,7 +223,7 @@
   <div class="section-t">Your account</div>
   <div class="prow" onclick="stub('This would let you edit your request.')"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openCard()"><span class="pic">▭</span><div class="pl"><b>Payment</b><span id="cardSummary">No card on file</span></div><span class="arr">›</span></div>
-  <div class="prow" onclick="openMessages()"><span class="pic">💬</span><div class="pl"><b>Messages</b><span>Chat with your Marm</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openMessages()"><span class="pic">💬</span><div class="pl"><b>Messages<span id="msgBadge"></span></b><span>Chat with your Marm</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
 </div></div>
 
@@ -328,6 +338,14 @@
     await loadTasks(); await loadReviews();
     $('#gate').classList.add('hidden'); $('#app').classList.add('on');
     render();
+
+    // Check for unread on entry, then every 30s. Deliberately slower than
+    // the 4s poll inside an open chat: this runs the whole time the app is
+    // open, and she may leave it open all day.
+    refreshUnread();
+    if(unreadPoll) clearInterval(unreadPoll);
+    unreadPoll = setInterval(refreshUnread, 30000);
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshUnread(); });
   }
 
   function render(){
@@ -554,6 +572,8 @@
 
 <div class="chat" id="chat">
   <div class="chat-head"><button class="chat-back" onclick="closeChat()">←</button><span id="chatName">Chat</span></div>
+  <div class="chat-note">Marmee can see these messages. We only read them if something goes wrong.</div>
+  <div class="chat-err" id="chatErr"></div>
   <div class="chat-msgs" id="chatMsgs"></div>
   <div class="chat-foot">
     <input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()">
@@ -563,6 +583,22 @@
 <script>
   function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   let chatMomId=null, chatPoll=null;
+
+  let UNREAD_TOTAL = 0, unreadPoll = null;
+  async function refreshUnread(){
+    if(!me) return;
+    try{
+      const { data, error } = await db.from('messages')
+        .select('id')
+        .eq('family_id', me.id).eq('sender_role','mom').is('read_by_family', null);
+      if(error) return;
+      const n = (data||[]).length;
+      if(n === UNREAD_TOTAL) return;
+      UNREAD_TOTAL = n;
+      const el = document.getElementById('msgBadge');
+      if(el){ el.innerHTML = n ? `<span class="unread">${n}</span>` : ''; }
+    }catch(e){}
+  }
   function openMessages(){
     const mom = Object.values(momById)[0];
     if(mom) openChat(mom.id);
@@ -576,21 +612,59 @@
     document.getElementById('chat').classList.add('on');
     loadChat(); if(chatPoll)clearInterval(chatPoll); chatPoll=setInterval(loadChat,4000);
   }
+
+  function chatErr(m){
+    const el=document.getElementById('chatErr'); if(!el) return;
+    el.textContent=m||''; el.classList.toggle('on', !!m);
+  }
+  function chatWhen(ts){
+    if(!ts) return '';
+    const d=new Date(ts); if(isNaN(d)) return '';
+    return d.toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'});
+  }
+  // Mark the other side's messages as read. Only the two read columns are
+  // writable, so this cannot touch anything else even if it wanted to.
+  async function markRead(msgs){
+    const mine = (msgs||[]).filter(m => m.sender_role === 'mom' && !m.read_by_family);
+    if(!mine.length) return;
+    try{
+      await db.from('messages').update({ read_by_family: new Date().toISOString() })
+        .in('id', mine.map(m=>m.id));
+      await refreshUnread();
+    }catch(e){ /* a missed read receipt is not worth interrupting her for */ }
+  }
   function closeChat(){ document.getElementById('chat').classList.remove('on'); if(chatPoll){clearInterval(chatPoll);chatPoll=null;} }
   async function loadChat(){
     if(!chatMomId||!me) return;
     try{
-      const { data } = await db.from('messages').select('*').eq('family_id',me.id).eq('mom_id',chatMomId).order('created_at',{ascending:true});
+      const { data, error } = await db.from('messages').select('*').eq('family_id',me.id).eq('mom_id',chatMomId).order('created_at',{ascending:true});
+      if(error) throw error;
+      chatErr('');
       const box=document.getElementById('chatMsgs'); const msgs=data||[];
-      box.innerHTML = msgs.length ? msgs.map(m=>'<div class="bubble '+(m.sender_role==='family'?'me':'them')+'">'+esc(m.body)+'</div>').join('') : '<div class="chat-empty">No messages yet. Say hello \ud83d\udc4b</div>';
-      box.scrollTop = box.scrollHeight;
-    }catch(e){}
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+      box.innerHTML = msgs.length
+        ? msgs.map(m=>'<div class="bubble '+(m.sender_role==='family'?'me':'them')+'" title="'+esc(chatWhen(m.created_at))+'">'+esc(m.body)+'</div>').join('')
+        : '<div class="chat-empty">No messages yet. Say hello.</div>';
+      if(atBottom) box.scrollTop = box.scrollHeight;
+      markRead(msgs);
+    }catch(e){
+      // A bare catch here is why messaging looked broken: the send failed,
+      // nothing was said, and the screen simply never changed.
+      chatErr('Could not load messages. Check your connection.');
+    }
   }
   async function sendChat(){
     const inp=document.getElementById('chatInput'); const body=(inp.value||'').trim(); if(!body||!chatMomId||!me) return;
     inp.value='';
-    try{ await db.from('messages').insert({ family_id:me.id, mom_id:chatMomId, sender_role:'family', body }); await loadChat(); }
-    catch(e){ inp.value=body; }
+    try{
+      const { error } = await db.from('messages').insert({ family_id:me.id, mom_id:chatMomId, sender_role:'family', body });
+      if(error) throw error;
+      chatErr('');
+      await loadChat();
+    }catch(e){
+      inp.value = body;   // give her the words back, never silently eat them
+      chatErr('That didn\u2019t send. Tap Send to try again.');
+    }
   }
 
 
