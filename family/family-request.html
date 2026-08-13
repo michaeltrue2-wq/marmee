@@ -52,6 +52,22 @@
   .card.on .tick{background:var(--honey);border-color:var(--honey)}
   .card .flag{position:absolute;top:-11px;left:18px;background:var(--pine);color:var(--honey-soft);font-size:var(--t-xs);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:var(--s1) var(--s3);border-radius:100px}
   .field{margin-bottom:var(--s5)}
+  /* ---- Where are you --------------------------------------------------
+     Location is a shortcut, not the main road. The ZIP box is always
+     visible and always enough: a woman who does not want a browser asking
+     for her whereabouts should never feel she has hit a wall. */
+  .locbtn{display:flex;align-items:center;justify-content:center;gap:var(--s2);width:100%;
+    background:#fff;border:1.5px solid var(--line);color:var(--pine);border-radius:13px;
+    padding:var(--s3) var(--s4);font-family:inherit;font-size:var(--t-md);font-weight:600;
+    cursor:pointer;min-height:50px;margin-bottom:var(--s3)}
+  .locbtn:hover{border-color:var(--honey)}
+  .locbtn[disabled]{opacity:.6;cursor:default}
+  .locor{text-align:center;color:var(--muted);font-size:var(--t-sm);margin-bottom:var(--s3)}
+  .locout{font-size:var(--t-md);font-weight:600;margin-top:var(--s3);line-height:1.5}
+  .locout.ok{color:var(--pine)}
+  .locout.wait{color:var(--clay)}
+  .locwait{margin-top:var(--s3)}
+
   label.fl{display:block;font-weight:600;font-size:var(--t-md);margin-bottom:var(--s2)}label.fl .opt{color:var(--muted);font-weight:400;font-size:var(--t-sm)}
   input[type=text],input[type=email],input[type=password],textarea,select{width:100%;padding:var(--s4) var(--s4);border:1.5px solid var(--line);border-radius:13px;font-family:inherit;font-size:var(--t-md);background:#fff;color:var(--ink)}
   input:focus,textarea:focus,select:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
@@ -114,16 +130,26 @@
     <div class="eyebrow">Step 2 · Your home</div>
     <h1>A little about your household.</h1>
     <div class="field">
-      <label class="fl">Your neighborhood</label>
-      <select id="hood">
-        <option value="">Choose your area</option>
-        <option>Munjoy Hill</option><option>West End</option><option>East End</option>
-        <option>Deering</option><option>East Bayside</option><option>Bayside</option>
-        <option>North Deering</option><option>Rosemont</option><option>South Portland</option>
-        <option>Cape Elizabeth</option><option>Falmouth</option><option>Scarborough</option>
-        <option>Westbrook</option><option>Other nearby</option>
-      </select>
+      <label class="fl">Where are you?</label>
+      <button type="button" class="locbtn" id="locBtn" onclick="useMyLocation()">
+        <span>&#9678;</span> Use my location
+      </button>
+      <div class="locor">or enter your ZIP</div>
+      <input type="text" id="zip" inputmode="numeric" autocomplete="postal-code"
+             maxlength="5" placeholder="04101" oninput="zipChg()">
+      <div class="locout" id="locOut"></div>
+      <div class="locwait" id="locWait" style="display:none">
+        <input type="email" id="wlEmail" placeholder="you@example.com" autocomplete="email">
+        <button type="button" class="locbtn" style="margin-top:var(--s2)" onclick="joinWaitlist()">
+          Tell me when you open here
+        </button>
+      </div>
     </div>
+    <div class="field">
+      <label class="fl">Your neighborhood <span class="opt">&mdash; optional</span></label>
+      <input type="text" id="hoodTxt" placeholder="Munjoy Hill, the West End&hellip;">
+    </div>
+
     <div class="field">
       <label class="fl">Your home</label>
       <div class="chips" data-single data-k="home">
@@ -252,7 +278,10 @@
   function collect(){
     const S=steps;
     const areas = safe(()=>[...S[1].querySelectorAll('.card.on')].map(c=>c.dataset.v), []);
-    const neighborhood = safe(()=>document.querySelector('#hood')?.value, null) || null;
+    const neighborhood = safe(()=>(document.querySelector('#hoodTxt')?.value||'').trim(), '') || null;
+    const zip       = LOC.zip || null;
+    const market_id = LOC.market ? LOC.market.id : null;
+    const lat       = LOC.lat, lng = LOC.lng;
     const pick = k => safe(()=>txt(S[2].querySelector(`.chips[data-k="${k}"] .chip.on`)), '') || null;
     const home_type = pick('home');
     const stairs    = pick('stairs');
@@ -262,7 +291,7 @@
     const times = safe(()=>[...wc[1].querySelectorAll('.chip.on')].map(c=>c.textContent.trim()), []);
     const window_ = times.length ? times.join(', ') : null;
     const name = val('#nm') || null;
-    return { areas, neighborhood, household, home_type, stairs, frequency, window: window_, name };
+    return { areas, neighborhood, zip, market_id, lat, lng, household, home_type, stairs, frequency, window: window_, name };
   }
 
   async function finish(){
@@ -276,7 +305,9 @@
       if(pass.length<6){ reset('Please choose a password with at least 6 characters.'); return; }
       const d=collect();
       if(!d.name){ reset('Please add your name.'); return; }
+      if(!d.market_id){ reset('Tell us where you are first — use your location or enter your ZIP.'); return; }
       const meta={ role:'family', name:d.name, neighborhood:d.neighborhood, household:d.household,
+        zip:d.zip, market_id:d.market_id, lat:d.lat, lng:d.lng,
         home_type:d.home_type, stairs:d.stairs,
         request:{ areas:d.areas, frequency:d.frequency, window:d.window } };
       const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('The server took too long to respond. Check your connection and try again.')),15000));
@@ -321,6 +352,124 @@ function attachPwToggles(){
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', attachPwToggles);
 else attachPwToggles();
+
+const WAITLIST_SIDE = 'mom';
+
+/* ---- Where are you ----------------------------------------------------
+   Browser geolocation returns coordinates, not a postcode. The usual next
+   step is a paid reverse-geocoding call to turn those into a ZIP. We skip
+   it: every market has a centre, so a point resolves to a market directly.
+
+   Two things worth knowing about the accuracy. On a phone this is good to
+   a few metres; on a desktop it is derived from the network and can be
+   twenty miles out. So we never silently accept it — we say which market
+   we think she is in and let her correct it by typing a ZIP.
+
+   And we do not keep her precise position. It is used to pick a market and
+   then rounded to two decimal places, about a kilometre, before it is
+   stored. A stranger who fills in half a form and leaves should not have
+   left her front door behind. */
+let LOC = { market:null, zip:null, lat:null, lng:null, source:null };
+
+function locSay(html, cls){
+  const el = document.getElementById('locOut');
+  if(!el) return;
+  el.className = 'locout' + (cls ? ' ' + cls : '');
+  el.innerHTML = html;
+}
+function showWaitlist(on){
+  const w = document.getElementById('locWait');
+  if(w) w.style.display = on ? 'block' : 'none';
+}
+
+// The Supabase script is loaded from a CDN. If it did not arrive, every
+// lookup below would throw on a null reference and the form would appear
+// to do nothing at all when she taps the button.
+function dbReady(){
+  if(db) return true;
+  locSay('We can’t reach the server. Check your connection and reload.', 'wait');
+  return false;
+}
+
+async function settleMarket(m, where){
+  if(m && m.status === 'live'){
+    LOC.market = m;
+    showWaitlist(false);
+    locSay(`&#10003; ${m.name} &mdash; that’s us. <span style="font-weight:400;color:var(--muted)">Not right? Type your ZIP above.</span>`, 'ok');
+    return true;
+  }
+  LOC.market = null;
+  showWaitlist(true);
+  locSay(`We’re not in ${where || 'your area'} yet. Leave your email and you’ll be first to know when we are.`, 'wait');
+  return false;
+}
+
+async function useMyLocation(){
+  const btn = document.getElementById('locBtn');
+  if(!navigator.geolocation){
+    locSay('This browser can’t share a location. Type your ZIP instead.', 'wait');
+    return;
+  }
+  if(!dbReady()) return;
+  btn.disabled = true; btn.innerHTML = '<span>&#9678;</span> Finding you…';
+  const done = () => { btn.disabled = false; btn.innerHTML = '<span>&#9678;</span> Use my location'; };
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    done();
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    try{
+      const { data, error } = await db.rpc('market_for_point', { p_lat: lat, p_lng: lng });
+      if(error) throw error;
+      // Coarsened on purpose — see the note above.
+      LOC.lat = Math.round(lat*100)/100; LOC.lng = Math.round(lng*100)/100;
+      LOC.source = 'gps'; LOC.zip = null;
+      const zipEl = document.getElementById('zip'); if(zipEl) zipEl.value = '';
+      await settleMarket(data && data[0], 'your area');
+    }catch(e){
+      locSay('Couldn’t look that up. Type your ZIP instead.', 'wait');
+    }
+  }, err => {
+    done();
+    // A refusal is a perfectly reasonable answer, and must not read like a failure.
+    locSay(err.code === 1
+      ? 'No problem &mdash; just type your ZIP above.'
+      : 'Couldn’t get a location. Type your ZIP above.', 'wait');
+  }, { enableHighAccuracy:false, timeout:10000, maximumAge:300000 });
+}
+
+let zipTimer;
+function zipChg(){
+  const el = document.getElementById('zip');
+  const z = (el.value || '').replace(/[^0-9]/g,'').slice(0,5);
+  if(el.value !== z) el.value = z;
+  clearTimeout(zipTimer);
+  if(z.length < 5){ locSay(''); showWaitlist(false); LOC.market = null; return; }
+  if(!dbReady()) return;
+  zipTimer = setTimeout(async () => {
+    LOC.zip = z; LOC.source = 'zip'; LOC.lat = null; LOC.lng = null;
+    try{
+      const { data, error } = await db.rpc('market_by_zip', { z });
+      if(error) throw error;
+      await settleMarket(data && data[0], z);
+    }catch(e){ locSay('Couldn’t check that ZIP. Try again in a moment.', 'wait'); }
+  }, 350);
+}
+
+async function joinWaitlist(){
+  const email = (document.getElementById('wlEmail').value || '').trim();
+  if(!email || !/.+@.+\..+/.test(email)){ locSay('Enter an email so we can reach you.', 'wait'); return; }
+  if(!dbReady()) return;
+  try{
+    const { error } = await db.from('waitlist').insert({
+      side: WAITLIST_SIDE, email, zip: LOC.zip,
+      name: (document.getElementById('nm')?.value || null)
+    });
+    if(error) throw error;
+    showWaitlist(false);
+    locSay('&#10003; You’re on the list. We’ll email you the day we open.', 'ok');
+  }catch(e){ locSay('Couldn’t save that. Try again in a moment.', 'wait'); }
+}
+
 </script>
 </body>
 </html>
