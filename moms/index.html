@@ -561,6 +561,15 @@
     // Check for unread on entry, then every 30s. Deliberately slower than
     // the 4s poll inside an open chat: this runs the whole time the app is
     // open, and she may leave it open all day.
+    refreshPayouts();
+    // Coming back from Stripe's onboarding — ask them, do not assume.
+    if(/[?&]payouts=done/.test(location.search)){
+      history.replaceState({}, '', location.pathname);
+      setTimeout(()=>refreshPayouts().then(()=>{
+        toast(PAYOUTS.ready ? 'You are set up — payouts start after your next visit'
+                            : 'Stripe is still checking a few things. We will let you know.');
+      }), 1200);
+    }
     refreshUnread();
     if(unreadPoll) clearInterval(unreadPoll);
     unreadPoll = setInterval(refreshUnread, 30000);
@@ -601,6 +610,64 @@
     toast(away ? 'You\'re set to Away — no new matches' : 'You\'re Available again');
   }
   function takeBreak(){ toast('Matches paused — enjoy your break'); }
+
+  /* ---- Getting paid ---------------------------------------------------
+     Stripe collects her bank details on their own pages. Marmee never sees
+     an account number, which is the point of doing it this way rather than
+     asking her to type one into a form we wrote. */
+  const FN = 'https://book.hiremarmee.com/.netlify/functions/';
+  let PAYOUTS = { started:false, ready:false, needs:null };
+
+  async function fn(name, extra){
+    const { data:{ session } } = await db.auth.getSession();
+    const r = await fetch(FN + name, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },   // simple request, no preflight
+      body: JSON.stringify(Object.assign({ token: session && session.access_token }, extra||{}))
+    });
+    const out = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error || 'That did not work.');
+    return out;
+  }
+
+  async function refreshPayouts(){
+    const el = document.getElementById('payoutSummary');
+    try{
+      const st = await fn('connect-status');
+      PAYOUTS = st;
+      if(el) el.textContent = st.ready
+        ? 'Paid to your bank after each visit'
+        : (st.started ? (st.needs || 'Finish setting up your payouts') : 'Set up how you get paid');
+    }catch(e){
+      if(el) el.textContent = 'Paid by Marmee after each visit';
+    }
+  }
+
+  async function openPayouts(){
+    if(PAYOUTS.ready){
+      toast('You are all set — your share arrives after each visit');
+      return;
+    }
+    const r = await openSheet({
+      title: PAYOUTS.started ? 'Finish setting up your payouts' : 'Get paid straight to your bank',
+      sub: 'Stripe handles this bit. They ask for your bank details on their own secure pages — Marmee never sees them.',
+      bodyHTML: '<div class="reassure" style="margin-top:0"><span class="ri">'
+              + '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg></span>'
+              + '<div>You will need your bank account details and a photo ID. It takes a few minutes, '
+              + 'and you can stop and come back.' + (PAYOUTS.needs ? ('<br><br><b>' + esc(PAYOUTS.needs) + '</b>') : '') + '</div></div>',
+      okLabel: PAYOUTS.started ? 'Carry on' : 'Start',
+      cancelLabel: 'Not now'
+    });
+    if(!r.ok) return;
+
+    try{
+      const { url } = await fn('connect-onboard');
+      if(!url) throw new Error('No link came back.');
+      window.location.href = url;      // Stripe's hosted onboarding
+    }catch(e){
+      toast(e.message || 'Could not open payout setup. Try again in a moment.');
+    }
+  }
 
   /* ---- Arriving and leaving ------------------------------------------
      Hours were whatever Mike typed in afterwards, from memory. Two taps
@@ -953,7 +1020,7 @@
       </div>
       <div class="prow" onclick="stub('This would let you edit your days and times.')"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg></span><div class="pl"><b>Availability</b><span>${avail}</span></div><span class="arr">›</span></div>
       <div class="prow" onclick="stub('This would let you edit the areas you help with.')"><span class="pic">❖</span><div class="pl"><b>Areas you help with</b><span>${areas.join(', ')||'—'}</span></div><span class="arr">›</span></div>
-      <div class="prow" onclick="stub('We pay you directly for now — bank details are not needed yet.')"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-card"/></svg></span><div class="pl"><b>How you're paid</b><span>Paid by Marmee after each visit</span></div><span class="arr">›</span></div>
+      <div class="prow" onclick="openPayouts()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-card"/></svg></span><div class="pl"><b>How you're paid</b><span id="payoutSummary">Checking…</span></div><span class="arr">›</span></div>
       <div class="prow" style="display:none"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-card"/></svg></span><div class="pl"><b>Payment</b><span>Set up direct deposit</span></div><span class="arr">›</span></div>
       <div class="prow" onclick="takeBreak()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-cup"/></svg></span><div class="pl"><b>Take a break</b><span>Pause new matches while you're away</span></div><span class="arr">›</span></div>
       <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>`;
@@ -1195,4 +1262,4 @@ async function resendConfirm(){
 </div>
 </body>
 </html>
-<!-- build: checkin -->
+<!-- build: payouts -->

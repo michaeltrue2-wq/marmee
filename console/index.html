@@ -754,6 +754,11 @@ function renderOverview(){
     // Was computed and thrown away. A household with no card cannot be
     // charged, so this is the number that quietly caps your revenue.
     {k:'No card on file', v:noCard, alert: noCard > 0},
+    // Money already collected from Moms that has not reached the Marms. It
+    // is not yours, and showing it beside "collected" keeps that honest.
+    {k:'Owed to Marms', v:`<small>$</small>${Math.round(
+        Object.values(owedByMarm()).reduce((t,x)=>t+x.cents,0)/100)}`,
+      alert: Object.keys(owedByMarm()).length > 0},
   ];
   let attn='';
   const oreq=openReqs(), pmoms=pendingMoms();
@@ -897,6 +902,9 @@ function renderMoms(){
           : '<span class="pill wait">Active — unverified</span>'}</div>
         <div class="meta">${m.rating?('★ '+Number(m.rating).toFixed(1)+' · '):''}${esc(m.neighborhood||'')} · ${fc} Mom${fc===1?'':'s'}${m.times_available?(' · '+arr(m.times_available).join(', ')):''}</div>
         ${bgLine(m)}
+        <div class="meta" style="margin-top:var(--s1)">${payoutLine(m)}
+          ${(owedByMarm()[m.id]||{}).cents ? ` · <b>$${((owedByMarm()[m.id].cents)/100).toFixed(2)} owed</b>` : ''}
+          <button class="minibtn" style="margin-left:var(--s2)" onclick="checkPayoutStatus('${m.id}')">Check</button></div>
         <div class="chips">${arr(m.areas).map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</div>
       </div></div>`;
   });
@@ -967,7 +975,12 @@ function renderSchedule(){
           <div class="vt">${v.visit_date?fmtDay(v.visit_date)+' · ':''}${esc(arr(v.areas).join(' · '))}${v.hours?(' · '+v.hours+' hrs'):''}${v.hours?(' · $'+Math.round(v.hours*visitRate(v))):''}</div>
           ${v.checked_in_at?`<div class="vt" style="color:var(--pine)">✓ On site ${clockTime(v.checked_in_at)}${v.checked_out_at?(' – '+clockTime(v.checked_out_at)+' · '+actualHours(v)+' hrs'):' · still there'}</div>`:''}
           ${taskLine(v.id)}
-          ${reviewLine(v.id)}</div>
+          ${reviewLine(v.id)}
+          ${v.payment_status==='paid' ? (v.transferred_at
+             ? `<div class="vt" style="color:var(--pine)">Marm paid $${((v.payout_cents||0)/100).toFixed(2)} · ${fmtDay(v.transferred_at)}</div>`
+             : `<div class="vt"><b>$${(owedFor(v)/100).toFixed(2)} owed to her</b>
+                 <button class="minibtn" style="margin-left:var(--s2)" onclick="sendPayout('${v.id}', this)">Send</button>
+                 ${v.payout_error?`<span style="color:var(--clay)"> · ${esc(v.payout_error)}</span>`:''}</div>`) : ''}</div>
         <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-end">
           <span class="pill ${overdue?'late':(v.status==='completed'||v.status==='confirmed'?'good':'wait')}">${overdue?'Overdue':v.status.charAt(0).toUpperCase()+v.status.slice(1)}</span>
           ${v.payment_status==='paid'     ? `<span class="pill good">Paid $${((v.amount_cents||0)/100).toFixed(0)}</span>` : ''}
@@ -1208,6 +1221,66 @@ function setTime(v){ const el=$('#svTime'); if(el){ el.value=v; el.dispatchEvent
 // Visit times are stored the way they read — "9:00a", "1:00p". Sorting those
 // as strings puts 1:00p before 10:00a before 8:00a, so an early visit sat
 // below an afternoon one every day. Sort on minutes instead.
+/* ---- Paying the Marms ------------------------------------------------
+   A visit the Mom has paid for is money Marmee is holding on someone
+   else's behalf. Until it is sent it is a liability, not revenue, and the
+   console should say so in those terms. */
+const MARM_SHARE = 0.85;
+
+const owedFor = v => (v.payment_status === 'paid' && !v.transferred_at)
+  ? Math.round((Number(v.amount_cents)||0) * MARM_SHARE) : 0;
+
+function owedByMarm(){
+  const by = {};
+  (state.visits||[]).forEach(v=>{
+    const c = owedFor(v);
+    if(!c || !v.mom_id) return;
+    (by[v.mom_id] = by[v.mom_id] || { cents:0, visits:[] });
+    by[v.mom_id].cents += c;
+    by[v.mom_id].visits.push(v);
+  });
+  return by;
+}
+
+function payoutLine(m){
+  if(m.payouts_enabled) return '<span style="color:var(--pine)">✓ Set up for payouts</span>';
+  if(m.stripe_account_id) return `<span style="color:var(--clay);font-weight:600">Payouts not finished${m.payouts_needs?(' — '+esc(m.payouts_needs)):''}</span>`;
+  return '<span style="color:var(--clay);font-weight:600">No payout account yet</span>';
+}
+
+async function sendPayout(visitId, btn){
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  try{
+    const { data:{ session } } = await db.auth.getSession();
+    const r = await fetch('/api/payout-visit', {
+      method:'POST', headers:{'content-type':'text/plain'},
+      body: JSON.stringify({ token: session && session.access_token, visitId })
+    });
+    const out = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error || 'That did not work.');
+    await loadAll(); renderAll();
+    toast(out.status === 'already_paid' ? 'Already sent' : `Sent $${(out.amountCents/100).toFixed(2)}`);
+  }catch(e){
+    toast(e.message || 'Could not send that payout.');
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Send'; }
+  }
+}
+
+async function checkPayoutStatus(momId){
+  try{
+    const { data:{ session } } = await db.auth.getSession();
+    const r = await fetch('/api/connect-status', {
+      method:'POST', headers:{'content-type':'text/plain'},
+      body: JSON.stringify({ token: session && session.access_token, momId })
+    });
+    const out = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error || 'Could not check.');
+    await loadAll(); renderAll();
+    toast(out.ready ? 'She is ready to be paid' : (out.needs || 'Not ready yet'));
+  }catch(e){ toast(e.message || 'Could not check her payout status.'); }
+}
+
 // Both member apps write these and the console has never shown either. A
 // rating you cannot see is worse than no rating: it tells the person who left
 // it that someone is listening, and nobody is.
@@ -1772,4 +1845,4 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
-<!-- build: console-bugs -->
+<!-- build: payouts -->
