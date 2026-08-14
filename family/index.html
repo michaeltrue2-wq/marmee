@@ -163,6 +163,9 @@
   .rvt{font-size:var(--t-xs);font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .rev-input{width:100%;padding:var(--s2) var(--s3);border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:var(--t-sm);background:#fff;margin-bottom:var(--s2)}
   .rev-submit{background:var(--pine);color:var(--ivory);border:none;border-radius:100px;padding:var(--s2) var(--s4);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer}
+  .summ{background:var(--ivory-dim);border-radius:12px;padding:var(--s3) var(--s4);
+        margin-top:var(--s3);font-size:var(--t-md);line-height:1.5}
+  .summ-left{color:var(--muted);font-size:var(--t-sm);margin-top:var(--s1)}
   .reviewed{margin-top:var(--s3);border-top:1px solid var(--ivory-dim);padding-top:var(--s2)}
   .rev-c{color:var(--muted);font-size:var(--t-sm);font-style:italic;margin-top:var(--s1)}
 
@@ -467,6 +470,7 @@
           <div class="visit"><div class="vt">${v.visit_time||'—'}</div>
             <div style="flex:1"><b>${fmtDay(v.visit_date)}</b><div class="vm">${m?((m.first_name||'')+' '+(m.last_initial||'')):''}</div></div>
             <span class="pill good">Done</span></div>
+          ${visitSummary(v, m)}
           ${rev ? `<div class="reviewed"><div class="stars-ro">${'★'.repeat(rev.rating)}${'☆'.repeat(5-rev.rating)}</div>${rev.comment?('<div class="rev-c">“'+escapeH(rev.comment)+'”</div>'):''}</div>`
                 : `<div class="reviewbox"><div class="rvt">How was your visit${m?(' with '+m.first_name):''}?</div>
                      <div class="stars" id="stars-${v.id}" data-rating="0">${[1,2,3,4,5].map(n=>`<button class="star" onclick="setStar('${v.id}',${n})">★</button>`).join('')}</div>
@@ -541,6 +545,54 @@
       if(ids.length){ const {data:m}=await db.from('moms').select('*').in('id',ids); (m||[]).forEach(x=>momById[x.id]=x); }
       await loadTasks(); await loadReviews(); render(); }catch(e){}
   }
+  /* ---- What actually happened -----------------------------------------
+     She was not there. The only evidence a visit happened has been a row
+     changing to "Done". Check-in times say someone came and how long they
+     stayed; the task list says what got done. Together they are the thing
+     that makes the money feel like a service rather than a charge. */
+  function clockTime(ts){
+    if(!ts) return '';
+    const d = new Date(ts);
+    return isNaN(d) ? '' : d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  }
+  function workedHours(v){
+    if(!v || !v.checked_in_at || !v.checked_out_at) return null;
+    const mins = (new Date(v.checked_out_at) - new Date(v.checked_in_at)) / 60000;
+    if(!isFinite(mins) || mins <= 0) return null;
+    return Math.round((mins/60)*4)/4;
+  }
+
+  function visitSummary(v, mom){
+    const name  = mom ? (mom.first_name || 'Your Marm') : 'Your Marm';
+    const tasks = visitTasks[v.id] || [];
+    const done  = tasks.filter(t=>t.done).map(t=>t.label);
+    const left  = tasks.filter(t=>!t.done).map(t=>t.label);
+    const hrs   = workedHours(v);
+
+    // "was here 9:02 to 12:07" beats "3 hours" — it is what she would have
+    // seen if she had been home, which is the whole point.
+    let when = '';
+    if(v.checked_in_at && v.checked_out_at){
+      when = `${escapeH(name)} was here ${clockTime(v.checked_in_at)} to ${clockTime(v.checked_out_at)}`
+           + (hrs ? ` · ${hrs} hour${hrs===1?'':'s'}` : '');
+    } else if(v.hours){
+      when = `${escapeH(name)} came for ${v.hours} hour${Number(v.hours)===1?'':'s'}`;
+    } else {
+      when = `${escapeH(name)} came`;
+    }
+
+    let what = '';
+    if(done.length){
+      what = ' and did ' + done.map(escapeH).slice(0,4).join(', ')
+           + (done.length>4 ? ` and ${done.length-4} more` : '');
+    } else if(arr(v.areas).length){
+      what = ' and worked on ' + arr(v.areas).map(escapeH).join(', ').toLowerCase();
+    }
+
+    return `<div class="summ">${when}${what}.
+      ${left.length ? `<div class="summ-left">Not this time: ${left.map(escapeH).join(', ')}</div>` : ''}</div>`;
+  }
+
   function toggleBookForm(){ const f=document.getElementById('bookForm'); f.style.display=f.style.display==='none'?'block':'none'; }
   async function doBook(){
     const mom=Object.values(momById)[0]; if(!mom){ toast('You\'ll be matched with a Marm first.'); return; }
