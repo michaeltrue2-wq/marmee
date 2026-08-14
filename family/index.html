@@ -1202,9 +1202,13 @@ async function openAddress(){
   const line = (r.values.shAddr||'').trim();
   if(!line){ toast('Add a street address so she can find you.'); return; }
   try{
-    const { error } = await db.from('families')
-      .update({ address_line: line, address_notes: (r.values.shNotes||'').trim() || null })
-      .eq('id', me.id);
+    // Through a function, not a table update. A policy that lets her write
+    // her own row lets her write every column in it — including market_id
+    // and the Stripe customer. This one takes two fields and nothing else.
+    const { error } = await db.rpc('set_my_address', {
+      p_line: line,
+      p_notes: (r.values.shNotes||'').trim() || null
+    });
     if(error) throw error;
     me.address_line = line;
     me.address_notes = (r.values.shNotes||'').trim() || null;
@@ -1276,7 +1280,7 @@ async function onAvatarPicked(input){
     await uploadPhoto(f, path, 600);
     // Same trap as the Marm app: the upload reported its errors, this write
     // did not, so a failure left an orphaned file and a silent screen.
-    await save(db.from('families').update({ avatar_path: path }).eq('id', me.id), 'save avatar');
+    await save(db.rpc('set_my_family_avatar', { p_path: path }), 'save avatar');
     me.avatar_path = path;
     await paintAvatar();
     toast('Photo updated.');
