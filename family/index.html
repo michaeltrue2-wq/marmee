@@ -858,7 +858,7 @@ async function openRequest(){
       + '<label for="shFreq">How often</label>'
       + '<select id="shFreq"><option value="">Not sure yet</option>'+freqOpts+'</select>'
       + '<label for="shWindow">Times that work</label>'
-      + '<input id="shWindow" placeholder="Mornings, weekends" value="'+esc(req.window||'')+'">',
+      + '<input id="shWindow" placeholder="Mornings, weekends" value="'+esc(req.preferred_window||'')+'">',
     okLabel:'Save changes'
   });
   if(!r.ok) return;
