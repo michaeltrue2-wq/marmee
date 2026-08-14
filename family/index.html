@@ -304,8 +304,8 @@
 <div class="gate" id="gate">
   <div class="gate-card">
     <div class="gate-logo"><svg class="logomark" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="20" r="9" fill="#C8993A"/><path d="M9.5 20a14.5 14.5 0 0 0 29 0" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/></svg>Marmee</div>
-    <div class="gate-sub">An experienced woman to help with the house a few hours a week,
-      so your evenings are yours again.</div>
+    <div class="gate-sub">The same experienced woman every week, so you stop being the
+      only one who knows where things are.</div>
 
     <a class="gate-cta" href="family-request.html">Request a Marm &rarr;</a>
 
@@ -333,6 +333,7 @@
   <div class="prow" onclick="openRequest()"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openAddress()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg></span><div class="pl"><b>Your address</b><span id="addrSummary">Not added yet</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openCard()"><span class="pic">▭</span><div class="pl"><b>Payment</b><span id="cardSummary">No card on file</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openStanding()"><span class="pic">↻</span><div class="pl"><b>Every visit</b><span id="stSummary">Nothing standing yet</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openGrocery()"><span class="pic">☰</span><div class="pl"><b>Grocery list</b><span id="grocSummary">Nothing on the list</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openMessages()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg></span><div class="pl"><b>Messages<span id="msgBadge"></span></b><span>Chat with your Marm</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
@@ -457,6 +458,7 @@
     // open, and she may leave it open all day.
     refreshUnread();
     refreshGroceryCount();
+    loadStanding();
     if(unreadPoll) clearInterval(unreadPoll);
     unreadPoll = setInterval(refreshUnread, 30000);
     document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshUnread(); });
@@ -838,6 +840,115 @@ function toggleVisit(id){
   EXPANDED = (EXPANDED === id) ? '' : id;
   render();
 }
+
+/* ---- Every visit --------------------------------------------------------
+   The standing list. A trigger copies it onto each new visit at the moment
+   it is booked, so she starts from her real list instead of an empty box —
+   and "same as last time" goes back to being the exception it should be.
+
+   Adding one here also pushes it onto visits already on the books, because
+   the alternative is a Mom adding "sheets" on Monday and quietly wondering
+   why Thursday's visit does not mention sheets. */
+let STANDING = [];
+
+function stErr(m){
+  const el = document.getElementById('stErr'); if(!el) return;
+  el.textContent = m || ''; el.classList.toggle('on', !!m);
+}
+
+function openStanding(){
+  if(!me){ toast('Sign in first.'); return; }
+  document.getElementById('st').classList.add('on');
+  loadStanding();
+  setTimeout(()=>{ const i=document.getElementById('stInput'); if(i) i.focus(); }, 250);
+}
+function closeStanding(){ document.getElementById('st').classList.remove('on'); }
+
+async function loadStanding(){
+  if(!me) return;
+  try{
+    const { data, error } = await db.from('standing_tasks')
+      .select('id,label,created_at').eq('family_id', me.id)
+      .order('created_at', { ascending: true });
+    if(error) throw error;
+    stErr('');
+    STANDING = data || [];
+    renderStanding();
+  }catch(e){ stErr('Could not load that list. Check your connection.'); }
+}
+
+function renderStanding(){
+  const box = document.getElementById('stList'); if(!box) return;
+  const n = STANDING.length;
+
+  const badge = document.getElementById('stCount');
+  if(badge) badge.textContent = n ? n + (n===1?' thing':' things') : '';
+  const row = document.getElementById('stSummary');
+  if(row) row.textContent = n
+    ? STANDING.slice(0,3).map(s=>s.label).join(', ') + (n>3 ? ' +'+(n-3)+' more' : '')
+    : 'Nothing standing yet';
+
+  if(!n){
+    box.innerHTML = '<div class="gl-empty">Nothing here yet.<br>'
+      + 'Add the things you would ask for every single week.</div>';
+    return;
+  }
+  box.innerHTML = STANDING.map(s =>
+    '<div class="gl-item"><div class="gl-body" style="cursor:default"><b>'+esc(s.label)+'</b></div>'
+    + '<button class="gl-x" onclick="removeStanding(\''+s.id+'\')" aria-label="Remove">&times;</button></div>'
+  ).join('');
+}
+
+async function addStanding(){
+  const inp = document.getElementById('stInput');
+  const label = (inp.value || '').trim();
+  if(!label || !me) return;
+  if(label.length > 80){ stErr('That is a bit long for a list item.'); return; }
+  if(STANDING.some(s => (s.label||'').toLowerCase() === label.toLowerCase())){
+    inp.value=''; toast('Already on the list.'); return;
+  }
+  inp.value = '';
+  try{
+    const { error } = await db.from('standing_tasks')
+      .insert({ family_id: me.id, label });
+    if(error) throw error;
+    stErr('');
+    await loadStanding();
+    await pushStandingToUpcoming([label]);
+  }catch(e){
+    inp.value = label;
+    stErr('That didn’t save. Tap Add to try again.');
+  }
+}
+
+async function removeStanding(id){
+  try{
+    const { error } = await db.from('standing_tasks').delete().eq('id', id);
+    if(error) throw error;
+    stErr('');
+    await loadStanding();
+    // Deliberately does not strip it from visits already booked. She may
+    // have ticked it off already, and silently deleting something off
+    // Thursday's list because she edited a setting would be a nasty surprise.
+  }catch(e){ stErr('Could not remove that.'); }
+}
+
+async function pushStandingToUpcoming(labels){
+  const up = myVisits.filter(v => v.status==='upcoming' || v.status==='confirmed');
+  if(!up.length) return;
+  const rows = [];
+  up.forEach(v => {
+    const on = new Set((visitTasks[v.id]||[]).map(t=>(t.label||'').toLowerCase()));
+    labels.forEach(l => { if(!on.has(l.toLowerCase())) rows.push({ visit_id: v.id, label: l }); });
+  });
+  if(!rows.length) return;
+  try{
+    const { error } = await db.from('visit_tasks').insert(rows);
+    if(error) throw error;
+    await reloadVisits();
+    toast('Added to your ' + up.length + ' upcoming visit' + (up.length===1?'':'s') + '.');
+  }catch(e){ /* the standing list saved; this is a bonus, not the point */ }
+}
   async function loadReviews(){
     myReviews={}; const ids=myVisits.map(v=>v.id); if(!ids.length) return;
     try{ const {data}=await db.from('reviews').select('*').in('visit_id',ids);
@@ -893,6 +1004,25 @@ function toggleVisit(id){
     <button onclick="addGrocery()">Add</button>
   </div>
   <div class="gl-list" id="glList"></div>
+</div>
+
+<!-- EVERY VISIT ----------------------------------------------------------
+     The list she should never have to write twice. New visits inherit it,
+     so she starts from her real list rather than an empty box. -->
+<div class="gl" id="st">
+  <div class="gl-head">
+    <button class="gl-back" onclick="closeStanding()" aria-label="Back">←</button>
+    <span>Every visit</span>
+    <span class="gl-count" id="stCount"></span>
+  </div>
+  <div class="gl-note">These are added to every new visit automatically. You can still change any single visit afterwards.</div>
+  <div class="gl-err" id="stErr"></div>
+  <div class="gl-add">
+    <input id="stInput" autocomplete="off" placeholder="Dishes, sheets, a load of laundry…"
+           onkeydown="if(event.key==='Enter')addStanding()">
+    <button onclick="addStanding()">Add</button>
+  </div>
+  <div class="gl-list" id="stList"></div>
 </div>
 
 <script>
