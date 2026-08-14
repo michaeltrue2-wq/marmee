@@ -309,7 +309,7 @@ const SUPABASE_URL = 'https://dlargnwijzrlruaxzsgj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
 // Last resort only. The real rate lives on the market, so opening Boston at
 // a different price is a row in a table rather than an edit in three files.
-const RATE = 28, FEE = 0.15;
+const RATE = 35, FEE = 0.15;
 
 const marketById = id => (state.markets||[]).find(x=>x.id===id) || null;
 
@@ -1225,10 +1225,13 @@ function setTime(v){ const el=$('#svTime'); if(el){ el.value=v; el.dispatchEvent
    A visit the Mom has paid for is money Marmee is holding on someone
    else's behalf. Until it is sent it is a liability, not revenue, and the
    console should say so in those terms. */
-const MARM_SHARE = 0.85;
+const FALLBACK_MARM_RATE = 30;   // dollars per hour to her, if the visit has none
 
+// What she is owed is hours times her rate — not a slice of what the Mom
+// paid. The two are different numbers and only one of them is a promise.
+const marmRateOf = v => (v && v.marm_rate != null) ? Number(v.marm_rate) : FALLBACK_MARM_RATE;
 const owedFor = v => (v.payment_status === 'paid' && !v.transferred_at)
-  ? Math.round((Number(v.amount_cents)||0) * MARM_SHARE) : 0;
+  ? Math.round((Number(v.hours)||0) * marmRateOf(v) * 100) : 0;
 
 function owedByMarm(){
   const by = {};
@@ -1561,9 +1564,10 @@ async function completeVisit(id){
     okLabel: 'Mark done',
     cancelLabel: 'Not yet',
     validate: v => (Number(v.shHours) > 0 ? null : 'Enter the hours worked.'),
-    // Without this the calculator quoted $28/hr while the confirmation two
+    // Without this the calculator quoted the fallback rate while the confirmation two
     // taps later quoted the visit's real rate.
-    rate
+    rate,
+    marmRate: marmRateOf(v)
   });
   if(!r.ok) return;
 
@@ -1745,11 +1749,13 @@ function wireHoursCalc(rate){
   if(!h || !out) return;
   const paint = () => {
     const n = Math.max(0, Number(h.value) || 0);
-    out.textContent = n ? `$${Math.round(n*rate)} charged · $${(n*rate*0.85).toFixed(2)} to her` : '';
+    out.textContent = n ? `$${Math.round(n*rate)} charged · $${(n*(_sheetMarmRate||FALLBACK_MARM_RATE)).toFixed(2)} to her` : '';
   };
   h.addEventListener('input', paint); paint();
 }
+let _sheetMarmRate = null;
 function openSheet(o){
+  _sheetMarmRate = o.marmRate || null;
   _sheetValidate = o.validate || null;
   _sheetErr('');
   document.getElementById('sheetTitle').textContent=o.title||'';
@@ -1845,4 +1851,4 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
-<!-- build: payouts -->
+<!-- build: rate-35 -->

@@ -121,6 +121,45 @@
     font-size:var(--t-sm);font-weight:600;padding:var(--s2) var(--s4);text-align:center;flex-shrink:0;display:none}
   .chat-err.on{display:block}
   .bubble.pending{opacity:.55}
+
+  /* ---- Grocery list ----------------------------------------------------
+     Same full-screen panel shape as the chat, because it is the same kind of
+     thing: a shared surface both people write to between visits. */
+  .gl{position:fixed;inset:0;z-index:300;background:var(--ivory);display:none;flex-direction:column}
+  .gl.on{display:flex}
+  .gl-head{background:var(--pine);color:var(--ivory);padding:var(--s4);display:flex;align-items:center;gap:var(--s3);
+           font-family:'Fraunces',serif;font-size:var(--t-lg);font-weight:600;flex-shrink:0}
+  .gl-back{background:rgba(246,241,231,.15);border:none;color:var(--ivory);width:34px;height:34px;border-radius:50%;
+           font-size:var(--t-xl);cursor:pointer;flex-shrink:0}
+  .gl-note{background:var(--ivory-dim);color:var(--muted);font-size:var(--t-sm);padding:var(--s2) var(--s4);flex-shrink:0}
+  .gl-err{background:var(--clay);color:#fff;font-size:var(--t-sm);padding:var(--s2) var(--s4);display:none;flex-shrink:0}
+  .gl-err.on{display:block}
+  .gl-add{display:flex;gap:var(--s2);padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:#fff;flex-shrink:0}
+  .gl-add input{flex:1;padding:var(--s3) var(--s4);border:1.5px solid var(--line);border-radius:100px;
+                font-family:inherit;font-size:var(--t-md);background:var(--ivory);color:var(--ink);min-width:0}
+  .gl-add input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .gl-add button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 var(--s5);
+                 font-family:inherit;font-weight:700;font-size:var(--t-md);cursor:pointer;flex-shrink:0}
+  .gl-list{flex:1;overflow-y:auto;padding:var(--s3) var(--s4) var(--s8)}
+  .gl-empty{color:var(--muted);text-align:center;margin-top:var(--s8);font-size:var(--t-md);line-height:1.5}
+  .gl-sec{font-size:var(--t-xs);letter-spacing:.1em;text-transform:uppercase;color:var(--honey-deep);
+          font-weight:700;margin:var(--s5) 0 var(--s2)}
+  .gl-sec:first-child{margin-top:var(--s2)}
+  .gl-item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:var(--s3) var(--s4);
+           margin-bottom:var(--s2);display:flex;align-items:center;gap:var(--s3)}
+  .gl-tick{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);background:none;cursor:pointer;
+           flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--t-sm);
+           font-weight:700;padding:0;line-height:1}
+  .gl-item.done .gl-tick{background:var(--pine);border-color:var(--pine)}
+  .gl-body{flex:1;min-width:0}
+  .gl-body b{display:block;font-weight:500;word-break:break-word}
+  .gl-body span{color:var(--muted);font-size:var(--t-sm)}
+  .gl-item.done .gl-body b{text-decoration:line-through;color:var(--muted)}
+  .gl-x{background:none;border:none;color:var(--muted);font-size:var(--t-lg);cursor:pointer;
+        padding:var(--s2);line-height:1;flex-shrink:0}
+  .gl-x:hover{color:var(--clay)}
+  .gl-count{margin-left:auto;font-family:'Hanken Grotesk',system-ui,sans-serif;font-size:var(--t-sm);
+            font-weight:600;opacity:.8}
   .unread{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;
     border-radius:100px;background:var(--clay);color:#fff;font-size:var(--t-xs);font-weight:700;margin-left:var(--s2)}
 
@@ -179,8 +218,15 @@
   .sheet h3{font-family:'Fraunces',Georgia,serif;font-size:var(--t-xl);color:var(--pine);margin-bottom:var(--s2)}
   .sheet .sheet-sub{color:var(--muted);font-size:var(--t-sm);margin-bottom:var(--s4)}
   .sheet label{display:block;font-weight:600;font-size:var(--t-sm);margin-bottom:var(--s2);color:var(--pine)}
-  .sheet input,.sheet textarea{width:100%;padding:var(--s3) var(--s4);border:1.5px solid var(--line);border-radius:12px;font-family:inherit;font-size:var(--t-md);background:#fff;color:var(--ink);margin-bottom:var(--s4)}
-  .sheet input:focus,.sheet textarea:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .sheet input,.sheet textarea,.sheet select{width:100%;padding:var(--s3) var(--s4);border:1.5px solid var(--line);border-radius:12px;font-family:inherit;font-size:var(--t-md);background:#fff;color:var(--ink);margin-bottom:var(--s4)}
+  .sheet input:focus,.sheet textarea:focus,.sheet select:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  /* Pick-one-or-more buttons inside a sheet. Same shape as the ones on the
+     sign-up form so the two screens feel like the same product. */
+  .sheet .chip{background:#fff;border:1.5px solid var(--line);color:var(--ink);padding:var(--s2) var(--s4);
+    border-radius:100px;font-family:inherit;font-size:var(--t-md);font-weight:500;cursor:pointer;
+    min-height:42px;width:auto;margin:0;transition:all .14s}
+  .sheet .chip:hover{border-color:var(--honey)}
+  .sheet .chip.on{background:var(--pine);border-color:var(--pine);color:var(--ivory);font-weight:600}
   .sheet-btns{display:flex;gap:var(--s3)}
   .sheet-btns button{flex:1;border:none;border-radius:100px;padding:var(--s3);font-family:inherit;font-weight:700;font-size:var(--t-md);min-height:48px;cursor:pointer}
   .sheet-cancel{background:#fff;border:1.5px solid var(--line);color:var(--muted)}
@@ -250,9 +296,10 @@
   </div>
   <div id="body"></div>
   <div class="section-t">Your account</div>
-  <div class="prow" onclick="stub('This would let you edit your request.')"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openRequest()"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openAddress()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg></span><div class="pl"><b>Your address</b><span id="addrSummary">Not added yet</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openCard()"><span class="pic">▭</span><div class="pl"><b>Payment</b><span id="cardSummary">No card on file</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openGrocery()"><span class="pic">☰</span><div class="pl"><b>Grocery list</b><span id="grocSummary">Nothing on the list</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openMessages()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg></span><div class="pl"><b>Messages<span id="msgBadge"></span></b><span>Chat with your Marm</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
 </div></div>
@@ -373,6 +420,7 @@
     // the 4s poll inside an open chat: this runs the whole time the app is
     // open, and she may leave it open all day.
     refreshUnread();
+    refreshGroceryCount();
     if(unreadPoll) clearInterval(unreadPoll);
     unreadPoll = setInterval(refreshUnread, 30000);
     document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshUnread(); });
@@ -661,6 +709,28 @@
     <button onclick="sendChat()">Send</button>
   </div>
 </div>
+
+<!-- GROCERY LIST ---------------------------------------------------------
+     Lives on the household, not on a visit. "We're out of milk" is true on
+     Tuesday whether or not anyone is booked, and the list has to survive
+     between visits or nobody will bother keeping it. -->
+<div class="gl" id="gl">
+  <div class="gl-head">
+    <button class="gl-back" onclick="closeGrocery()" aria-label="Back">←</button>
+    <span>Grocery list</span>
+    <span class="gl-count" id="glCount"></span>
+  </div>
+  <div class="gl-note">Your Marm sees this list and ticks things off as she shops.</div>
+  <div class="gl-err" id="glErr"></div>
+  <div class="gl-add">
+    <input id="glInput" list="glSuggest" autocomplete="off" placeholder="Milk, bread, paper towels…"
+           onkeydown="if(event.key==='Enter')addGrocery()">
+    <datalist id="glSuggest"></datalist>
+    <button onclick="addGrocery()">Add</button>
+  </div>
+  <div class="gl-list" id="glList"></div>
+</div>
+
 <script>
   function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   let chatMomId=null, chatPoll=null;
@@ -747,6 +817,259 @@
       chatErr('That didn\u2019t send. Tap Send to try again.');
     }
   }
+
+/* ---- Editing your request ----------------------------------------------
+   This row said "This would let you edit your request" for months. What she
+   needs from a Marm changes — the baby starts school, the errands stop, she
+   wants fortnightly instead of weekly — and having to email us about it is
+   the kind of friction that ends a subscription.
+
+   The write goes through `update_my_request`, not a table update, because a
+   policy that lets her edit her own row lets her edit every column in it,
+   including the market and the matched Marm. The function takes the three
+   fields she owns and nothing else. */
+const REQ_AREAS = ['Home','Food','Errands','Keeping track'];
+const REQ_FREQ  = ['Weekly','Every 2 weeks','One-time','Not sure yet'];
+let _reqPicked = new Set();
+
+function _reqToggle(v, el){
+  if(_reqPicked.has(v)){ _reqPicked.delete(v); el.classList.remove('on'); }
+  else { _reqPicked.add(v); el.classList.add('on'); }
+}
+
+async function openRequest(){
+  if(!me){ toast('Sign in first.'); return; }
+  const req = myReqs[0] || {};
+  _reqPicked = new Set(arr(req.areas));
+
+  const areaBtns = REQ_AREAS.map(a =>
+    '<button type="button" class="chip'+(_reqPicked.has(a)?' on':'')+'" '
+    + 'onclick="_reqToggle(\''+a+'\',this)">'+esc(a)+'</button>').join('');
+
+  const freqOpts = REQ_FREQ.map(f =>
+    '<option value="'+esc(f)+'"'+(req.frequency===f?' selected':'')+'>'+esc(f)+'</option>').join('');
+
+  const r = await openSheet({
+    title:'Your request',
+    sub:'Change what you need and how often. We’ll pass it on to your Marm.',
+    bodyHTML:
+        '<label>What would help most</label>'
+      + '<div class="chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">'+areaBtns+'</div>'
+      + '<label for="shFreq">How often</label>'
+      + '<select id="shFreq"><option value="">Not sure yet</option>'+freqOpts+'</select>'
+      + '<label for="shWindow">Times that work</label>'
+      + '<input id="shWindow" placeholder="Mornings, weekends" value="'+esc(req.window||'')+'">',
+    okLabel:'Save changes'
+  });
+  if(!r.ok) return;
+
+  const areas = [..._reqPicked];
+  if(!areas.length){ toast('Pick at least one thing you need help with.'); return; }
+
+  try{
+    const { error } = await db.rpc('update_my_request', {
+      p_areas: areas,
+      p_frequency: r.values.shFreq || null,
+      p_window: (r.values.shWindow || '').trim() || null
+    });
+    if(error) throw error;
+    // Re-read rather than patching the local copy: the function is what
+    // decides the final shape, and guessing at it is how rows drift.
+    const { data: rq } = await db.from('requests').select('*').eq('family_id', me.id);
+    myReqs = rq || [];
+    const rq0 = myReqs[0];
+    $('#reqSummary').textContent = rq0
+      ? (arr(rq0.areas).join(', ') + (rq0.frequency ? (' · '+rq0.frequency) : ''))
+      : 'No request on file';
+    toast('Saved. Your Marm will see the change.');
+  }catch(e){
+    toast('That didn’t save. Please try again.');
+  }
+}
+
+/* ---- Grocery list -------------------------------------------------------
+   No product API. A grocery list is written in the words people actually use
+   \u2014 "cheese", "the good bread", "Ellie's yogurt" \u2014 not "Cabot Seriously
+   Sharp Cheddar 8oz". A three-million-row product catalogue makes that
+   autocomplete worse, not better, and it puts a third party in the path of a
+   list that has to work with no signal in a supermarket aisle.
+
+   So: a small dictionary of staples, plus everything this household has ever
+   put on the list before, ranked first. After three weeks her own history is
+   doing all the work. Nothing to key, nothing to rate-limit, nothing to break.
+   -------------------------------------------------------------------------- */
+const STAPLES = ['Milk','Whole milk','Oat milk','Almond milk','Half and half','Heavy cream','Butter','Eggs',
+'Yogurt','Greek yogurt','Cheddar','Mozzarella','Parmesan','Cream cheese','Sour cream','Cottage cheese',
+'Bread','Sandwich bread','Bagels','English muffins','Tortillas','Pita','Rolls','Hamburger buns',
+'Bananas','Apples','Oranges','Lemons','Limes','Grapes','Strawberries','Blueberries','Raspberries',
+'Avocados','Tomatoes','Lettuce','Spinach','Kale','Carrots','Celery','Cucumber','Bell peppers',
+'Broccoli','Green beans','Onions','Garlic','Potatoes','Sweet potatoes','Mushrooms','Zucchini','Corn',
+'Chicken breast','Ground beef','Ground turkey','Bacon','Sausage','Pork chops','Steak','Deli turkey',
+'Deli ham','Salmon','Shrimp','Tuna','Hot dogs','Rotisserie chicken',
+'Rice','Pasta','Spaghetti','Egg noodles','Quinoa','Oatmeal','Cereal','Granola','Pancake mix','Flour',
+'Sugar','Brown sugar','Baking soda','Baking powder','Vanilla','Chocolate chips',
+'Olive oil','Vegetable oil','Cooking spray','Vinegar','Soy sauce','Ketchup','Mustard','Mayonnaise',
+'Ranch dressing','Salad dressing','BBQ sauce','Hot sauce','Salsa','Pasta sauce','Peanut butter','Jelly',
+'Honey','Maple syrup','Salt','Black pepper','Cinnamon','Garlic powder','Taco seasoning',
+'Chicken broth','Canned tomatoes','Canned beans','Black beans','Chickpeas','Canned corn','Soup',
+'Crackers','Goldfish','Pretzels','Chips','Tortilla chips','Popcorn','Granola bars','Fruit snacks',
+'Cookies','Ice cream','Applesauce','Raisins','Nuts','Trail mix','String cheese',
+'Coffee','Coffee filters','Tea','Juice','Orange juice','Apple juice','Sparkling water','Seltzer','Soda',
+'Frozen pizza','Frozen vegetables','Frozen waffles','Frozen berries','Chicken nuggets','Frozen fries',
+'Paper towels','Toilet paper','Tissues','Napkins','Paper plates','Aluminum foil','Plastic wrap',
+'Parchment paper','Sandwich bags','Freezer bags','Trash bags','Kitchen trash bags',
+'Dish soap','Dishwasher pods','Laundry detergent','Fabric softener','Dryer sheets','Stain remover',
+'All-purpose cleaner','Bleach','Glass cleaner','Bathroom cleaner','Disinfecting wipes','Sponges',
+'Hand soap','Body wash','Shampoo','Conditioner','Toothpaste','Deodorant','Lotion','Sunscreen',
+'Band-aids','Ibuprofen','Tylenol','Vitamins','Diapers','Wipes','Cat food','Dog food','Cat litter',
+'Batteries','Light bulbs','Sponge refills'];
+
+let GROCERIES = [];
+let groceryPoll = null;
+
+function glErr(m){
+  const el = document.getElementById('glErr'); if(!el) return;
+  el.textContent = m || ''; el.classList.toggle('on', !!m);
+}
+
+function openGrocery(){
+  if(!me){ toast('Sign in first.'); return; }
+  document.getElementById('gl').classList.add('on');
+  loadGrocery();
+  // Both people write to this list, so it has to move on its own. Same
+  // four-second poll as the chat rather than a second live channel.
+  if(groceryPoll) clearInterval(groceryPoll);
+  groceryPoll = setInterval(loadGrocery, 5000);
+  setTimeout(()=>{ const i=document.getElementById('glInput'); if(i) i.focus(); }, 250);
+}
+function closeGrocery(){
+  document.getElementById('gl').classList.remove('on');
+  if(groceryPoll){ clearInterval(groceryPoll); groceryPoll=null; }
+}
+
+async function loadGrocery(){
+  if(!me) return;
+  try{
+    const { data, error } = await db.from('grocery_items')
+      .select('id,label,note,done,done_at,added_by,created_at')
+      .eq('family_id', me.id)
+      .order('done', { ascending: true })
+      .order('created_at', { ascending: true });
+    if(error) throw error;
+    glErr('');
+    GROCERIES = data || [];
+    renderGrocery();
+    buildGrocerySuggestions();
+    updateGroceryRow();
+  }catch(e){
+    glErr('Could not load the list. Check your connection.');
+  }
+}
+
+function renderGrocery(){
+  const box = document.getElementById('glList'); if(!box) return;
+  const todo = GROCERIES.filter(g => !g.done);
+  const got  = GROCERIES.filter(g =>  g.done);
+
+  const badge = document.getElementById('glCount');
+  if(badge) badge.textContent = todo.length ? todo.length + (todo.length===1?' item':' items') : '';
+
+  if(!GROCERIES.length){
+    box.innerHTML = '<div class="gl-empty">Nothing on the list yet.<br>Add what you need and your Marm will pick it up.</div>';
+    return;
+  }
+
+  const row = g => '<div class="gl-item'+(g.done?' done':'')+'">'
+    + '<button class="gl-tick" onclick="toggleGrocery(\''+g.id+'\','+(g.done?'true':'false')+')" '
+    + 'aria-label="'+(g.done?'Not got yet':'Mark as got')+'">'+(g.done?'&#10003;':'')+'</button>'
+    + '<div class="gl-body"><b>'+esc(g.label)+'</b>'
+    + (g.note ? '<span>'+esc(g.note)+'</span>' : '')
+    + (g.done && g.added_by==='mom' ? '' : '')
+    + '</div>'
+    + '<button class="gl-x" onclick="removeGrocery(\''+g.id+'\')" aria-label="Remove">&times;</button>'
+    + '</div>';
+
+  let html = '';
+  if(todo.length) html += '<div class="gl-sec">To get</div>' + todo.map(row).join('');
+  if(got.length)  html += '<div class="gl-sec">Got it</div>'  + got.map(row).join('');
+  box.innerHTML = html;
+}
+
+// Her own history first \u2014 those are the words she actually uses \u2014 then the
+// staples she has not already got on the list.
+function buildGrocerySuggestions(){
+  const dl = document.getElementById('glSuggest'); if(!dl) return;
+  const seen = new Set();
+  const out  = [];
+  GROCERIES.forEach(g => {
+    const k = (g.label||'').toLowerCase();
+    if(k && !seen.has(k)){ seen.add(k); out.push(g.label); }
+  });
+  STAPLES.forEach(s => { if(!seen.has(s.toLowerCase())) out.push(s); });
+  dl.innerHTML = out.map(v => '<option value="'+esc(v)+'"></option>').join('');
+}
+
+async function addGrocery(){
+  const inp = document.getElementById('glInput');
+  const label = (inp.value || '').trim();
+  if(!label || !me) return;
+  if(label.length > 80){ glErr('That is a bit long for a list item.'); return; }
+
+  // Already on the list and not yet got? Say so rather than making a duplicate.
+  const dupe = GROCERIES.find(g => !g.done && (g.label||'').toLowerCase() === label.toLowerCase());
+  if(dupe){ inp.value=''; toast('Already on the list.'); return; }
+
+  inp.value = '';
+  try{
+    const { error } = await db.from('grocery_items')
+      .insert({ family_id: me.id, label, added_by: 'family' });
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){
+    inp.value = label;          // never eat what she typed
+    glErr('That didn\u2019t save. Tap Add to try again.');
+  }
+}
+
+async function toggleGrocery(id, wasDone){
+  const now = !wasDone;
+  try{
+    const { error } = await db.from('grocery_items')
+      .update({ done: now, done_at: now ? new Date().toISOString() : null })
+      .eq('id', id);
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){ glErr('Could not update that item.'); }
+}
+
+async function removeGrocery(id){
+  try{
+    const { error } = await db.from('grocery_items').delete().eq('id', id);
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){ glErr('Could not remove that item.'); }
+}
+
+// Keeps the account row honest without opening the panel.
+async function updateGroceryRow(){
+  const el = document.getElementById('grocSummary'); if(!el) return;
+  const n = GROCERIES.filter(g => !g.done).length;
+  el.textContent = n ? (n===1 ? '1 thing to get' : n + ' things to get') : 'Nothing on the list';
+}
+async function refreshGroceryCount(){
+  if(!me) return;
+  try{
+    const { data, error } = await db.from('grocery_items')
+      .select('id,label,note,done,done_at,added_by,created_at')
+      .eq('family_id', me.id);
+    if(error) return;
+    GROCERIES = data || [];
+    updateGroceryRow();
+  }catch(e){}
+}
 
 
 /* ---- Photos -------------------------------------------------------------

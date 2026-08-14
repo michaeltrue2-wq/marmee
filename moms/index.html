@@ -233,6 +233,45 @@
   .chat-foot input{flex:1;padding:var(--s3) var(--s4);border:1.5px solid var(--line);border-radius:100px;font-family:inherit;font-size:var(--t-md);background:var(--ivory);color:var(--ink)}
   .chat-foot input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
   .chat-foot button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 var(--s5);font-family:inherit;font-weight:700;cursor:pointer}
+
+  /* ---- Grocery list ----------------------------------------------------
+     Her side of the same list the Mom keeps. She can add to it too — she is
+     the one standing in the kitchen noticing the paper towels are gone. */
+  .gl{position:fixed;inset:0;z-index:300;background:var(--ivory);display:none;flex-direction:column}
+  .gl.on{display:flex}
+  .gl-head{background:var(--pine);color:var(--ivory);padding:var(--s4);display:flex;align-items:center;gap:var(--s3);
+           font-family:'Fraunces',serif;font-size:var(--t-lg);font-weight:600;flex-shrink:0}
+  .gl-back{background:rgba(246,241,231,.15);border:none;color:var(--ivory);width:34px;height:34px;border-radius:50%;
+           font-size:var(--t-xl);cursor:pointer;flex-shrink:0}
+  .gl-count{margin-left:auto;font-family:'Hanken Grotesk',system-ui,sans-serif;font-size:var(--t-sm);font-weight:600;opacity:.8}
+  .gl-note{background:var(--ivory-dim);color:var(--muted);font-size:var(--t-sm);padding:var(--s2) var(--s4);flex-shrink:0}
+  .gl-err{background:var(--clay);color:#fff;font-size:var(--t-sm);padding:var(--s2) var(--s4);display:none;flex-shrink:0}
+  .gl-err.on{display:block}
+  .gl-add{display:flex;gap:var(--s2);padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:#fff;flex-shrink:0}
+  .gl-add input{flex:1;padding:var(--s3) var(--s4);border:1.5px solid var(--line);border-radius:100px;
+                font-family:inherit;font-size:var(--t-md);background:var(--ivory);color:var(--ink);min-width:0}
+  .gl-add input:focus{outline:2px solid var(--honey-soft);border-color:var(--honey)}
+  .gl-add button{background:var(--honey);color:var(--pine-deep);border:none;border-radius:100px;padding:0 var(--s5);
+                 font-family:inherit;font-weight:700;font-size:var(--t-md);cursor:pointer;flex-shrink:0}
+  .gl-list{flex:1;overflow-y:auto;padding:var(--s3) var(--s4) var(--s8)}
+  .gl-empty{color:var(--muted);text-align:center;margin-top:var(--s8);font-size:var(--t-md);line-height:1.5}
+  .gl-sec{font-size:var(--t-xs);letter-spacing:.1em;text-transform:uppercase;color:var(--honey-deep);
+          font-weight:700;margin:var(--s5) 0 var(--s2)}
+  .gl-sec:first-child{margin-top:var(--s2)}
+  /* Her rows are taller than the Mom's. She is ticking these off one-handed,
+     in a shop, holding a basket — a 26px target is not enough. */
+  .gl-item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:var(--s3) var(--s4);
+           margin-bottom:var(--s2);display:flex;align-items:center;gap:var(--s4);min-height:60px}
+  .gl-tick{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:none;cursor:pointer;
+           flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--t-md);
+           font-weight:700;padding:0;line-height:1}
+  .gl-item.done .gl-tick{background:var(--pine);border-color:var(--pine)}
+  .gl-body{flex:1;min-width:0}
+  .gl-body b{display:block;font-weight:500;font-size:var(--t-lg);word-break:break-word}
+  .gl-body span{color:var(--muted);font-size:var(--t-sm)}
+  .gl-item.done .gl-body b{text-decoration:line-through;color:var(--muted)}
+  .gl-x{background:none;border:none;color:var(--muted);font-size:var(--t-lg);cursor:pointer;padding:var(--s2);line-height:1;flex-shrink:0}
+  .gl-x:hover{color:var(--clay)}
   .actbtn{background:var(--ivory);border:1px solid var(--line);color:var(--pine);border-radius:100px;padding:var(--s1) var(--s3);font-family:inherit;font-size:var(--t-xs);font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
   .actbtn:hover{border-color:var(--honey)} .actbtn.warn{color:#9D4526}
   .vacts{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s3)}
@@ -369,23 +408,25 @@
   const SUPABASE_KEY = 'sb_publishable_RvdH1vqVRoxvL-gnXwGHkw_1CcRTpLg';
   // Fallback only. Her real rate comes from her market, so a Marm in a
   // costlier city is not quietly told she earns Portland money.
-  const RATE = 28;
+  const RATE = 35;
   let MARKET = null;
+  // What she is actually paid. Read from her market, not derived from a fee.
+  let MARM_RATE = FALLBACK_MARM_RATE;
   const myRate = () => {
     const c = MARKET && Number(MARKET.hourly_rate_cents);
     return (c && isFinite(c)) ? c/100 : RATE;
   };
-  const PLATFORM_FEE = 0.15;   // matches the console and the charge function
+  const FALLBACK_MARM_RATE = 30;   // dollars an hour to her
 
   // What she is actually owed for a visit, from what was actually collected.
   // Falls back to hours x rate only for visits recorded before payments
   // existed — never for one that failed.
   function visitPay(v){
     if(v.payment_status === 'paid' && v.amount_cents != null){
-      return (v.amount_cents / 100) * (1 - PLATFORM_FEE);
+      return (Number(v.hours)||0) * (v.marm_rate != null ? Number(v.marm_rate) : FALLBACK_MARM_RATE);
     }
     if(v.payment_status === 'failed' || v.payment_status === 'processing') return 0;
-    return (Number(v.hours)||0) * (Number(v.rate)||myRate()) * (1 - PLATFORM_FEE);
+    return (Number(v.hours)||0) * (v.marm_rate != null ? Number(v.marm_rate) : FALLBACK_MARM_RATE);
   }
   const isPaid    = v => v.payment_status === 'paid';
   const isPending = v => v.status === 'completed' && v.payment_status !== 'paid';
@@ -536,6 +577,7 @@
     if(me.market_id){
       const { data: mk } = await db.from('markets').select('*').eq('id', me.market_id).limit(1);
       MARKET = (mk && mk[0]) || null;
+      if(MARKET && MARKET.marm_rate_cents) MARM_RATE = Number(MARKET.marm_rate_cents)/100;
     }
 
     $('#gate').classList.add('hidden');
@@ -766,6 +808,7 @@
           ${checkButton(next)}
           <button class="hbtn" onclick="openChat('${next.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Message${unreadBadge(next.family_id)}</button>
           <button class="hbtn sec" onclick="directions('${next.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg> Directions</button>
+          <button class="hbtn sec" onclick="openGrocery('${next.family_id}')">☰ Grocery list</button>
         </div></div>`;
     } else {
       hero = `<div class="hero"><div class="hk">Your schedule</div>
@@ -810,6 +853,7 @@
           <div class="vacts">
             ${canCheck(v) ? `<button class="actbtn" onclick="${checkState(v)==='in'?'doCheckOut':'doCheckIn'}('${v.id}')" ${checkState(v)==='done'?'disabled':''}>${checkState(v)==='done'?('Finished · '+elapsedText(v)):(checkState(v)==='in'?"I'm finished":"I've arrived")}</button>` : ''}
             <button class="actbtn" onclick="openChat('${v.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Message${unreadBadge(v.family_id)}</button>
+            <button class="actbtn" onclick="openGrocery('${v.family_id}')">☰ Grocery list</button>
             ${cl?`<a class="actbtn" href="${cl}" target="_blank"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg> Add to calendar</a>`:''}
             ${open?`<button class="actbtn" onclick="doResched('${v.id}')">Reschedule</button><button class="actbtn warn" onclick="doCancel('${v.id}')">Cancel</button>`:''}
           </div>
@@ -963,7 +1007,7 @@
       <div class="ebig"><div class="ek">Paid to you</div><div class="ev">$${total.toFixed(2).replace(/\.00$/,'')}</div><div class="es">across ${paid.length} visit${paid.length===1?'':'s'}</div></div>
       ${pendingBlock}
       <div class="section-t">Paid visits</div>${rows}
-      <div class="reassure"><span class="ri"><svg class="ic" aria-hidden="true"><use href="#i-leaf"/></svg></span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${myRate()}/hour</b>, and Marmee keeps ${Math.round(PLATFORM_FEE*100)}%.</div></div>`;
+      <div class="reassure"><span class="ri"><svg class="ic" aria-hidden="true"><use href="#i-leaf"/></svg></span><div>You're paid automatically after each visit — no invoices, no chasing anyone. Your rate is <b>$${MARM_RATE}/hour</b>, and that is what reaches your bank.</div></div>`;
   }
 
   function pickAvatar(){ document.getElementById('avaFile').click(); }
@@ -1092,6 +1136,170 @@
       chatErr('That didn\u2019t send. Tap Send to try again.');
     }
   }
+
+/* ---- Grocery list -------------------------------------------------------
+   The same rows the Mom writes. No product API behind it: a list is written
+   in the words people use \u2014 "cheese", "the good bread" \u2014 and a catalogue of
+   three million barcoded SKUs makes that autocomplete worse. The suggestions
+   are this household's own history first, then a small dictionary of staples.
+   Works with two bars of signal in an aisle, which is where it gets used.
+
+   RLS is what makes this safe to hand her: the policy only returns rows for a
+   household she is actually paired with, so this code does not have to be
+   careful \u2014 it could not read someone else's list if it tried. */
+const STAPLES = ['Milk','Whole milk','Oat milk','Almond milk','Half and half','Heavy cream','Butter','Eggs',
+'Yogurt','Greek yogurt','Cheddar','Mozzarella','Parmesan','Cream cheese','Sour cream','Cottage cheese',
+'Bread','Sandwich bread','Bagels','English muffins','Tortillas','Pita','Rolls','Hamburger buns',
+'Bananas','Apples','Oranges','Lemons','Limes','Grapes','Strawberries','Blueberries','Raspberries',
+'Avocados','Tomatoes','Lettuce','Spinach','Kale','Carrots','Celery','Cucumber','Bell peppers',
+'Broccoli','Green beans','Onions','Garlic','Potatoes','Sweet potatoes','Mushrooms','Zucchini','Corn',
+'Chicken breast','Ground beef','Ground turkey','Bacon','Sausage','Pork chops','Steak','Deli turkey',
+'Deli ham','Salmon','Shrimp','Tuna','Hot dogs','Rotisserie chicken',
+'Rice','Pasta','Spaghetti','Egg noodles','Quinoa','Oatmeal','Cereal','Granola','Pancake mix','Flour',
+'Sugar','Brown sugar','Baking soda','Baking powder','Vanilla','Chocolate chips',
+'Olive oil','Vegetable oil','Cooking spray','Vinegar','Soy sauce','Ketchup','Mustard','Mayonnaise',
+'Ranch dressing','Salad dressing','BBQ sauce','Hot sauce','Salsa','Pasta sauce','Peanut butter','Jelly',
+'Honey','Maple syrup','Salt','Black pepper','Cinnamon','Garlic powder','Taco seasoning',
+'Chicken broth','Canned tomatoes','Canned beans','Black beans','Chickpeas','Canned corn','Soup',
+'Crackers','Goldfish','Pretzels','Chips','Tortilla chips','Popcorn','Granola bars','Fruit snacks',
+'Cookies','Ice cream','Applesauce','Raisins','Nuts','Trail mix','String cheese',
+'Coffee','Coffee filters','Tea','Juice','Orange juice','Apple juice','Sparkling water','Seltzer','Soda',
+'Frozen pizza','Frozen vegetables','Frozen waffles','Frozen berries','Chicken nuggets','Frozen fries',
+'Paper towels','Toilet paper','Tissues','Napkins','Paper plates','Aluminum foil','Plastic wrap',
+'Parchment paper','Sandwich bags','Freezer bags','Trash bags','Kitchen trash bags',
+'Dish soap','Dishwasher pods','Laundry detergent','Fabric softener','Dryer sheets','Stain remover',
+'All-purpose cleaner','Bleach','Glass cleaner','Bathroom cleaner','Disinfecting wipes','Sponges',
+'Hand soap','Body wash','Shampoo','Conditioner','Toothpaste','Deodorant','Lotion','Sunscreen',
+'Band-aids','Ibuprofen','Tylenol','Vitamins','Diapers','Wipes','Cat food','Dog food','Cat litter',
+'Batteries','Light bulbs','Sponge refills'];
+
+let GROCERIES = [], groceryFam = null, groceryPoll = null;
+
+function glErr(m){
+  const el = document.getElementById('glErr'); if(!el) return;
+  el.textContent = m || ''; el.classList.toggle('on', !!m);
+}
+
+function openGrocery(familyId){
+  if(!familyId) return;
+  groceryFam = familyId;
+  const f = famById[familyId];
+  document.getElementById('glWho').textContent =
+    f && f.name ? (f.name.replace(/^The /,'') + '\u2019s list') : 'Grocery list';
+  document.getElementById('gl').classList.add('on');
+  loadGrocery();
+  if(groceryPoll) clearInterval(groceryPoll);
+  groceryPoll = setInterval(loadGrocery, 5000);
+}
+function closeGrocery(){
+  document.getElementById('gl').classList.remove('on');
+  if(groceryPoll){ clearInterval(groceryPoll); groceryPoll = null; }
+  groceryFam = null;
+}
+
+async function loadGrocery(){
+  if(!groceryFam) return;
+  try{
+    const { data, error } = await db.from('grocery_items')
+      .select('id,label,note,done,done_at,added_by,created_at')
+      .eq('family_id', groceryFam)
+      .order('done', { ascending: true })
+      .order('created_at', { ascending: true });
+    if(error) throw error;
+    glErr('');
+    GROCERIES = data || [];
+    renderGrocery();
+    buildGrocerySuggestions();
+  }catch(e){
+    glErr('Could not load the list. Check your connection.');
+  }
+}
+
+function renderGrocery(){
+  const box = document.getElementById('glList'); if(!box) return;
+  const todo = GROCERIES.filter(g => !g.done);
+  const got  = GROCERIES.filter(g =>  g.done);
+
+  const badge = document.getElementById('glCount');
+  if(badge) badge.textContent = todo.length ? todo.length + ' to get' : 'All done';
+
+  if(!GROCERIES.length){
+    box.innerHTML = '<div class="gl-empty">Nothing on the list yet.<br>Add anything you notice she\u2019s out of.</div>';
+    return;
+  }
+
+  const row = g => '<div class="gl-item'+(g.done?' done':'')+'">'
+    + '<button class="gl-tick" onclick="toggleGrocery(\''+g.id+'\','+(g.done?'true':'false')+')" '
+    + 'aria-label="'+(g.done?'Not got yet':'Mark as got')+'">'+(g.done?'&#10003;':'')+'</button>'
+    + '<div class="gl-body"><b>'+esc(g.label)+'</b>'
+    + (g.note ? '<span>'+esc(g.note)+'</span>' : '')
+    + '</div>'
+    // She can only remove what she put on herself. Deleting something the Mom
+    // asked for, by mistake, in a shop, is not a mistake she can undo.
+    + (g.added_by === 'mom'
+        ? '<button class="gl-x" onclick="removeGrocery(\''+g.id+'\')" aria-label="Remove">&times;</button>'
+        : '')
+    + '</div>';
+
+  let html = '';
+  if(todo.length) html += '<div class="gl-sec">To get</div>' + todo.map(row).join('');
+  if(got.length)  html += '<div class="gl-sec">Got it</div>'  + got.map(row).join('');
+  box.innerHTML = html;
+}
+
+function buildGrocerySuggestions(){
+  const dl = document.getElementById('glSuggest'); if(!dl) return;
+  const seen = new Set(), out = [];
+  GROCERIES.forEach(g => {
+    const k = (g.label||'').toLowerCase();
+    if(k && !seen.has(k)){ seen.add(k); out.push(g.label); }
+  });
+  STAPLES.forEach(s => { if(!seen.has(s.toLowerCase())) out.push(s); });
+  dl.innerHTML = out.map(v => '<option value="'+esc(v)+'"></option>').join('');
+}
+
+async function addGrocery(){
+  const inp = document.getElementById('glInput');
+  const label = (inp.value || '').trim();
+  if(!label || !groceryFam) return;
+  if(label.length > 80){ glErr('That is a bit long for a list item.'); return; }
+
+  const dupe = GROCERIES.find(g => !g.done && (g.label||'').toLowerCase() === label.toLowerCase());
+  if(dupe){ inp.value=''; toast('Already on the list.'); return; }
+
+  inp.value = '';
+  try{
+    const { error } = await db.from('grocery_items')
+      .insert({ family_id: groceryFam, label, added_by: 'mom' });
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){
+    inp.value = label;
+    glErr('That didn\u2019t save. Tap Add to try again.');
+  }
+}
+
+async function toggleGrocery(id, wasDone){
+  const now = !wasDone;
+  try{
+    const { error } = await db.from('grocery_items')
+      .update({ done: now, done_at: now ? new Date().toISOString() : null })
+      .eq('id', id);
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){ glErr('Could not update that item.'); }
+}
+
+async function removeGrocery(id){
+  try{
+    const { error } = await db.from('grocery_items').delete().eq('id', id);
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){ glErr('Could not remove that item.'); }
+}
 
   function chatErr(m){
     const el=document.getElementById('chatErr'); if(!el) return;
@@ -1255,6 +1463,23 @@ async function resendConfirm(){
   </div>
 </div>
 
+<!-- GROCERY LIST -->
+<div class="gl" id="gl">
+  <div class="gl-head">
+    <button class="gl-back" onclick="closeGrocery()" aria-label="Back">←</button>
+    <span id="glWho">Grocery list</span>
+    <span class="gl-count" id="glCount"></span>
+  </div>
+  <div class="gl-note">Tick things off as you get them. She sees it change.</div>
+  <div class="gl-err" id="glErr"></div>
+  <div class="gl-add">
+    <input id="glInput" list="glSuggest" autocomplete="off" placeholder="Add something you noticed…"
+           onkeydown="if(event.key==='Enter')addGrocery()">
+    <datalist id="glSuggest"></datalist>
+    <button onclick="addGrocery()">Add</button>
+  </div>
+  <div class="gl-list" id="glList"></div>
+</div>
 
 <div class="sheet-scrim" id="sheetScrim" onclick="_sheetClose(false)"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
@@ -1268,4 +1493,4 @@ async function resendConfirm(){
 </div>
 </body>
 </html>
-<!-- build: lock-moms -->
+<!-- build: rate-35 -->

@@ -186,7 +186,9 @@
   .nav-in{max-width:560px;margin:0 auto;padding:var(--s3) var(--s5);display:flex;gap:var(--s3);align-items:center;width:100%}
   .back{background:none;border:none;color:var(--muted);font-family:inherit;font-size:var(--t-md);font-weight:600;cursor:pointer;padding:var(--s3) var(--s1);min-height:44px}
   .back:hover{color:var(--pine)}
-  .back.hide{visibility:hidden}
+  /* display:none, not visibility:hidden — otherwise the hidden Back button
+     still takes its width and shoves the primary button off-centre. */
+  .back.hide{display:none}
   .next{flex:1;background:var(--honey);color:var(--pine-deep);border:none;padding:var(--s4);border-radius:100px;font-family:inherit;font-weight:700;font-size:var(--t-lg);cursor:pointer;transition:background .15s;min-height:54px}
   .next:hover{background:var(--honey-soft)}
   .next:disabled{opacity:0.45;cursor:default}

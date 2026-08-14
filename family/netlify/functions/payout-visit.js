@@ -25,7 +25,10 @@
 const { json, stripe, authed, preflight } = require('./_shared');
 const { createClient } = require('@supabase/supabase-js');
 
-const MARM_SHARE = 0.85;
+// Her hourly rate, snapshotted on the visit when it was booked. A share of
+// the client price could never land on a round number, and what she is owed
+// should be a figure she was promised rather than one we derive.
+const FALLBACK_MARM_RATE = 30;
 
 function adminDb(){
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -54,7 +57,7 @@ exports.handler = async (event) => {
 
     const { data: visits, error: vErr } = await db
       .from('visits')
-      .select('id, mom_id, amount_cents, payment_status, transferred_at, transfer_id, payout_attempts')
+      .select('id, mom_id, hours, marm_rate, amount_cents, payment_status, transferred_at, transfer_id, payout_attempts')
       .eq('id', visitId).limit(1);
 
     if(vErr) return json(500, { error: 'Could not read that visit.' });
@@ -68,9 +71,10 @@ exports.handler = async (event) => {
       return json(400, { error: 'That visit has not been paid for yet, so there is nothing to send on.' });
     }
 
-    const gross = Number(visit.amount_cents) || 0;
-    const amount = Math.round(gross * MARM_SHARE);
-    if(amount <= 0) return json(400, { error: 'That visit has no amount recorded.' });
+    const hours = Number(visit.hours) || 0;
+    const marmRate = (visit.marm_rate == null) ? FALLBACK_MARM_RATE : Number(visit.marm_rate);
+    const amount = Math.round(hours * marmRate * 100);
+    if(amount <= 0) return json(400, { error: 'That visit has no hours recorded.' });
 
     const { data: moms } = await db
       .from('moms')

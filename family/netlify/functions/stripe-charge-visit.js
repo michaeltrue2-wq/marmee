@@ -16,7 +16,7 @@
 
 const { json, stripe, authed, preflight } = require('./_shared');
 
-const DEFAULT_RATE = 28;      // dollars per hour — matches RATE in the console
+const DEFAULT_RATE = 35;      // dollars per hour — matches RATE in the console
 const PLATFORM_FEE = 0.15;    // Marmee's share
 
 // supabase-js RESOLVES with { data, error }; it does not throw. Every
