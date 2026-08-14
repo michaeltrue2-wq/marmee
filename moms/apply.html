@@ -80,6 +80,21 @@
 
   /* fields */
   .field{margin-bottom:var(--s5)}
+  /* ---- Continue with Google ------------------------------------------
+     Offered beside email and password, never instead of it. This is the age
+     group where Gmail coverage is thinnest — plenty of Yahoo, AOL, Comcast
+     and iCloud — and taking the password route away would lose exactly the
+     people we most want. */
+  .gbtn{display:flex;align-items:center;justify-content:center;gap:var(--s3);width:100%;
+    background:#fff;border:1.5px solid var(--line);color:var(--ink);border-radius:13px;
+    padding:var(--s3) var(--s4);font-family:inherit;font-size:var(--t-md);font-weight:600;
+    cursor:pointer;min-height:52px;margin-bottom:var(--s4)}
+  .gbtn:hover{border-color:var(--honey)}
+  .gbtn svg{width:20px;height:20px;flex-shrink:0}
+  .gor{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4);
+    color:var(--muted);font-size:var(--t-sm);font-weight:600}
+  .gor::before,.gor::after{content:'';flex:1;height:1px;background:var(--line)}
+
   /* ---- Line icons -----------------------------------------------------
      Emoji render differently on every device, carry a shipped-in colour we
      do not control, and read as decoration. These inherit currentColor and
@@ -385,6 +400,11 @@
     <div class="eyebrow">Step 5 · Last thing</div>
     <h1>A quick background check.</h1>
     <p class="lead">Every Marm is checked — it's what lets Moms trust us. Here's the part we promised would be painless.</p>
+      <button type="button" class="gbtn" onclick="withGoogle()">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.4h11.9c-.2 2-1.5 4.9-4.4 6.9l6.7 5.2c3.9-3.6 6.9-8.9 6.9-15.4z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.4c-1.9 1.3-4.4 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.1l-7.1 5.5C8 41 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.5 28.4c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4l-7.1-5.5C3 17 2.3 20.4 2.3 24s.7 7 1.9 9.9l7.3-5.5z"/><path fill="#EA4335" d="M24 10.2c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 3.6 29.9 1.5 24 1.5 15.4 1.5 8 6.5 4.2 13.8l7.3 5.5c1.8-5.3 6.7-9.1 12.5-9.1z"/></svg>
+        Continue with Google
+      </button>
+      <div class="gor">or use an email and password</div>
     <div class="field">
       <label class="fl">Create your login &mdash; email</label>
       <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
@@ -843,6 +863,57 @@ async function joinWaitlist(){
   }catch(e){ locSay('Couldn’t save that. Try again in a moment.', 'wait'); }
 }
 
+
+/* ---- Continue with Google -------------------------------------------
+   Her answers cannot travel through Google, so they are parked in
+   sessionStorage — which is per tab and per origin, and survives the round
+   trip out to Google and back. On return, claim_marm turns them into a
+   real record. Doing it this way means she never chooses a password, and
+   never waits for a confirmation email, which is the whole point. */
+const STASH_KEY = 'marmee-signup-marm';
+
+async function withGoogle(){
+  const d = collect();
+  if(!d.first_name){ msg('Please add your name first.'); return; }
+  if(!d.market_id){ msg('Tell us where you are first.'); return; }
+  try{
+    sessionStorage.setItem(STASH_KEY, JSON.stringify(d));
+  }catch(e){ /* private browsing — the claim below still works, just emptier */ }
+
+  if(!db){ msg('Could not reach the server. Check your internet and try again.'); return; }
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: location.origin + location.pathname + '?claim=1' }
+  });
+  if(error) msg('Could not open Google sign-in. Use an email and password instead.');
+}
+
+// Runs on load. If we have just come back from Google, finish the job.
+async function finishGoogle(){
+  if(!/[?&]claim=1/.test(location.search) || !db) return;
+  try{
+    const { data:{ session } } = await db.auth.getSession();
+    if(!session) return;
+
+    let d = {};
+    try{ d = JSON.parse(sessionStorage.getItem(STASH_KEY) || '{}'); }catch(e){}
+
+    // Google gives us a name; use it only where she left one blank.
+    const gname = (session.user.user_metadata||{}).full_name || '';
+    if(!d.first_name && gname){ const pr = gname.split(/\s+/); d.first_name = pr[0]; d.last_initial = pr.slice(1).join(' ') || null; }
+
+    const { error } = await db.rpc('claim_marm', { d });
+    if(error) throw error;
+
+    sessionStorage.removeItem(STASH_KEY);
+    history.replaceState({}, '', location.pathname);
+    i = steps.length - 1; show();
+  }catch(e){
+    msg('We signed you in, but could not save your answers. ' + (e && e.message ? e.message : ''));
+  }
+}
+
+finishGoogle();
 </script>
 
 <div class="sheet-scrim" id="sheetScrim" onclick="_sheetClose(false)"></div>
@@ -859,4 +930,4 @@ async function joinWaitlist(){
 <div class="toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
 </body>
 </html>
-<!-- build: no-specialty -->
+<!-- build: google-signin -->
