@@ -251,6 +251,29 @@
 
   .resend-link{display:block;width:100%;background:none;border:none;color:var(--honey-deep);font-family:inherit;font-weight:700;font-size:var(--t-sm);cursor:pointer;text-decoration:underline;text-underline-offset:3px;min-height:44px;margin-top:var(--s2)}
 
+  /* ---- Visit list ------------------------------------------------------ */
+  .card.collapsed{padding-bottom:var(--s3)}
+  .vhead{cursor:pointer;align-items:flex-start}
+  .vchev{color:var(--muted);font-size:var(--t-lg);line-height:1;padding-left:var(--s2);flex-shrink:0}
+  .tcount{margin-top:var(--s1)}
+  /* A visit with no time was rendering as a bare em dash, which reads like
+     something failed to load rather than something not yet decided. */
+  .tbc{font-size:var(--t-xs);line-height:1.15;display:inline-block;opacity:.65;text-transform:uppercase;letter-spacing:.04em}
+  .task{display:flex;align-items:center;gap:var(--s2)}
+  .task label{flex:1}
+  .tx{background:none;border:none;color:var(--muted);font-size:var(--t-lg);line-height:1;
+      cursor:pointer;padding:0 var(--s2);opacity:.5}
+  .tx:hover{opacity:1;color:var(--clay)}
+  /* Tap, don't type. */
+  .qadd{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s3) 0 var(--s2)}
+  .qchip{background:var(--ivory);border:1.5px dashed var(--line);color:var(--muted);
+         border-radius:100px;padding:var(--s2) var(--s3);font-family:inherit;
+         font-size:var(--t-sm);font-weight:600;cursor:pointer;min-height:38px}
+  .qchip:hover{border-style:solid;border-color:var(--honey);color:var(--pine);background:#fff}
+  .copylast{margin-top:var(--s3);background:none;border:none;color:var(--honey-deep);
+            font-family:inherit;font-size:var(--t-sm);font-weight:700;cursor:pointer;
+            padding:var(--s2) 0;text-decoration:underline}
+
   /* The mark. currentColor on the arc so it is pine on ivory and ivory
      on pine without a second copy of the file. */
   .logomark{width:1.3em;height:1.3em;display:inline-block;vertical-align:-0.3em;flex-shrink:0}
@@ -377,6 +400,8 @@
   }
   function stub(m){ toast(m.replace(/^This would /,'').replace(/\.$/,'')); }
   let me=null, myReqs=[], myVisits=[], momById={}, visitTasks={}, myReviews={};
+  // Which upcoming visit is open. null = not chosen yet, so the next one wins.
+  let EXPANDED = null;
 
   async function login(){
     if(!db){ gerr('Could not reach the server. Refresh and try again.'); return; }
@@ -495,26 +520,46 @@
         </div>`;
     }
     if(upcoming.length){
+      // Only the next visit opens. Three identical expanded cards in a row
+      // read as one long form, and the thing she actually came to do —
+      // glance at the next visit — gets buried under two copies of itself.
+      if(EXPANDED === null) EXPANDED = upcoming[0].id;
+
       upcoming.forEach(v=>{
         const m=momById[v.mom_id];
         const tasks=visitTasks[v.id]||[];
         const cl = calLink(v);
-        html += `<div class="card">
-          <div class="visit"><div class="vt">${v.visit_time||'—'}</div>
+        const open = (v.id === EXPANDED);
+        const done = tasks.filter(t=>t.done).length;
+
+        html += `<div class="card${open?'':' collapsed'}">
+          <div class="visit vhead" onclick="toggleVisit('${v.id}')">
+            <div class="vt">${v.visit_time || '<span class="tbc">time<br>tbc</span>'}</div>
             <div style="flex:1"><b>${fmtDay(v.visit_date)}</b>
             <div class="vm">${m?((m.first_name||'')+' '+(m.last_initial||'')+' · '):''}${v.hours?(v.hours+' hours'):''}</div>
-            <div class="chips">${arr(v.areas).map(a=>`<span class="tag">${a}</span>`).join('')}</div></div>
-            <span class="pill up">Upcoming</span></div>
-          <div class="checklist"><div class="ct">What you'd like done</div>
-            ${tasks.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}',this.checked)"><label>${escapeH(t.label)}</label></div>`).join('')}
-            <div class="task-add"><input id="task-${v.id}" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addTask('${v.id}')"><button onclick="addTask('${v.id}')">Add</button></div>
+            ${open
+              ? `<div class="chips">${arr(v.areas).map(a=>`<span class="tag">${a}</span>`).join('')}</div>`
+              : `<div class="vm tcount">${tasks.length
+                    ? (done?done+' of ':'')+tasks.length+' thing'+(tasks.length===1?'':'s')+' to do'
+                    : 'Nothing listed yet'}</div>`}
+            </div>
+            <span class="vchev">${open?'⌃':'⌄'}</span></div>`;
+
+        if(open){
+          html += `<div class="checklist"><div class="ct">What you'd like done</div>
+            ${tasks.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}',this.checked)"><label>${escapeH(t.label)}</label><button class="tx" onclick="removeTask('${t.id}')" aria-label="Remove">&times;</button></div>`).join('')}
+            ${quickAdds(v, tasks)}
+            <div class="task-add"><input id="task-${v.id}" placeholder="Something else…" onkeydown="if(event.key==='Enter')addTask('${v.id}')"><button onclick="addTask('${v.id}')">Add</button></div>
+            ${lastVisitTasks(v, tasks).length
+              ? `<button class="copylast" onclick="copyLast('${v.id}')">Same as last time (${lastVisitTasks(v, tasks).length})</button>` : ''}
           </div>
           <div class="vacts">
             ${cl?`<a class="actbtn" href="${cl}" target="_blank"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg> Add to calendar</a>`:''}
             <button class="actbtn" onclick="doResched('${v.id}')">Reschedule</button>
             <button class="actbtn warn" onclick="doCancel('${v.id}')">Cancel</button>
-          </div>
-        </div>`;
+          </div>`;
+        }
+        html += `</div>`;
       });
     } else {
       html += `<div class="card req">No visits scheduled yet${mom?' — book your first one above.':'. They\'ll appear here once you\'re matched.'}</div>`;
@@ -685,6 +730,114 @@
   async function toggleTask(taskId,done){
     try{ await save(db.from('visit_tasks').update({done}).eq('id',taskId), 'toggle task'); await reloadVisits(); }catch(e){ toast('Could not save that. Try again.'); }
   }
+  async function removeTask(taskId){
+    try{ await save(db.from('visit_tasks').delete().eq('id',taskId), 'remove task'); await reloadVisits(); }catch(e){ toast('Could not remove that. Try again.'); }
+  }
+
+/* ---- Tasks without typing -----------------------------------------------
+   A weekly visit is ninety per cent the same list every week. An empty text
+   box asks her to retype it fifty-two times a year, and what actually
+   happens is she stops filling it in at all — so the Marm arrives with no
+   instructions and has to guess or text.
+
+   Three ways out, in the order she will reach for them:
+     · chips she taps, filtered to what this visit is actually for
+     · "same as last time", which is the real answer most weeks
+     · free text, still there, for the one-off
+   -------------------------------------------------------------------------- */
+const QA = {};   // visit id -> the chip labels currently on screen for it
+const TASK_IDEAS = {
+  'Home': ['Dishes','Vacuum','Mop the floors','Clean the bathrooms','Change the sheets',
+           'Wash a load','Fold the laundry','Put laundry away','Make the beds',
+           'Wipe the counters','Tidy the living room','Kids’ rooms','Take out the trash',
+           'Recycling','Fresh towels','Water the plants'],
+  'Food': ['Prep dinner','Pack lunches','Empty the fridge','Grocery run','Put shopping away',
+           'Something for the freezer','Cut up fruit','Wash the produce'],
+  'Errands': ['Pharmacy','Post office','Returns','Dry cleaning','School pickup','Fill the car'],
+  'Keeping track': ['Sort the mail','Book appointments','RSVP to the party','Order refills',
+                    'Check the school calendar']
+};
+
+// What she has asked for before, most recent first — better than any list we
+// could write, because it is in her words about her house.
+function pastLabels(){
+  const seen = new Set(), out = [];
+  Object.values(visitTasks).flat()
+    .sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))
+    .forEach(t=>{
+      const k=(t.label||'').toLowerCase();
+      if(k && !seen.has(k)){ seen.add(k); out.push(t.label); }
+    });
+  return out;
+}
+
+function quickAdds(v, tasks){
+  const on = new Set(tasks.map(t=>(t.label||'').toLowerCase()));
+  const areas = arr(v.areas);
+  let pool = pastLabels();
+  // Only the ideas for what this visit is actually booked for. Offering
+  // "pharmacy" on a cleaning visit is noise she has to read past.
+  (areas.length ? areas : Object.keys(TASK_IDEAS)).forEach(a=>{
+    (TASK_IDEAS[a]||[]).forEach(l=>pool.push(l));
+  });
+  const seen = new Set();
+  pool = pool.filter(l=>{
+    const k=l.toLowerCase();
+    if(on.has(k) || seen.has(k)) return false;
+    seen.add(k); return true;
+  }).slice(0, 10);
+  if(!pool.length) return '';
+  // Passed by index, never by value. A label with an apostrophe in it —
+  // "Ellie's room" — would close the string inside the onclick attribute and
+  // break the button, and the labels come from her own typing.
+  QA[v.id] = pool;
+  return '<div class="qadd">' + pool.map((l, i) =>
+    `<button class="qchip" onclick="quickAdd('${v.id}',${i})">+ ${escapeH(l)}</button>`
+  ).join('') + '</div>';
+}
+
+// The most recent visit that already had a list, minus anything on this one.
+function lastVisitTasks(v, tasks){
+  const on = new Set(tasks.map(t=>(t.label||'').toLowerCase()));
+  const prior = myVisits
+    .filter(x => x.id !== v.id && (visitTasks[x.id]||[]).length)
+    .sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
+  if(!prior.length) return [];
+  const seen = new Set();
+  return (visitTasks[prior[0].id]||[])
+    .map(t=>t.label)
+    .filter(l=>{
+      const k=(l||'').toLowerCase();
+      if(!k || on.has(k) || seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+}
+
+async function quickAdd(visitId, idx){
+  const label = (QA[visitId] || [])[idx];
+  if(!label) return;
+  try{
+    await save(db.from('visit_tasks').insert({ visit_id: visitId, label }), 'add task');
+    await reloadVisits();
+  }catch(e){ toast('Could not add that. Try again.'); }
+}
+
+async function copyLast(visitId){
+  const v = myVisits.find(x=>x.id===visitId); if(!v) return;
+  const labels = lastVisitTasks(v, visitTasks[visitId]||[]);
+  if(!labels.length) return;
+  try{
+    await save(db.from('visit_tasks')
+      .insert(labels.map(label=>({ visit_id: visitId, label }))), 'copy last list');
+    await reloadVisits();
+    toast('Added ' + labels.length + ' from last time.');
+  }catch(e){ toast('Could not copy that list. Try again.'); }
+}
+
+function toggleVisit(id){
+  EXPANDED = (EXPANDED === id) ? '' : id;
+  render();
+}
   async function loadReviews(){
     myReviews={}; const ids=myVisits.map(v=>v.id); if(!ids.length) return;
     try{ const {data}=await db.from('reviews').select('*').in('visit_id',ids);
