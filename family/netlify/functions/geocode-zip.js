@@ -36,12 +36,25 @@ function reply(statusCode, body){
 
 // Writes to the cache need to happen for people who are not signed in yet,
 // so this one place uses the service role. It only ever touches zip_codes.
+// Returns null rather than throwing when the key is absent. createClient with
+// an undefined key throws immediately, which took down the whole handler and
+// looked identical to "we have never heard of that postcode" — the cache is a
+// speed-up, not a dependency, and it must not be able to break the lookup.
 function admin(){
-  return createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
+  if(!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY){
+    console.error('geocode-zip: SUPABASE_SERVICE_ROLE_KEY missing — running without the cache');
+    return null;
+  }
+  try{
+    return createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+  }catch(e){
+    console.error('geocode-zip: could not build admin client', e.message);
+    return null;
+  }
 }
 
 // Netlify's Node runtime does not reliably provide a global fetch, and when
@@ -114,16 +127,20 @@ exports.handler = async (event) => {
   const zip = String((event.queryStringParameters || {}).zip || '').trim();
   if(!/^\d{5}$/.test(zip)) return reply(400, { error: 'Give me a five digit ZIP.' });
 
+  const db = admin();
+  const noCache = !db;
+
   try{
-    const db = admin();
-
     // Cached already? Then nobody outside gets asked.
-    const { data: hit } = await db
-      .from('zip_codes').select('zip, lat, lng, city, state').eq('zip', zip).limit(1);
-
-    if(hit && hit[0] && hit[0].lat != null && hit[0].lng != null){
-      return reply(200, { zip, lat: Number(hit[0].lat), lng: Number(hit[0].lng),
-                          city: hit[0].city, state: hit[0].state, cached: true });
+    if(db){
+      try{
+        const { data: hit } = await db
+          .from('zip_codes').select('zip, lat, lng, city, state').eq('zip', zip).limit(1);
+        if(hit && hit[0] && hit[0].lat != null && hit[0].lng != null){
+          return reply(200, { zip, lat: Number(hit[0].lat), lng: Number(hit[0].lng),
+                              city: hit[0].city, state: hit[0].state, cached: true });
+        }
+      }catch(e){ console.error('geocode-zip: cache read failed', e.message); }
     }
 
     const found = await lookup(zip);
@@ -132,20 +149,28 @@ exports.handler = async (event) => {
       // coordinates; it is a worse match, not a broken sign-up. `why` is what
       // turns a silent failure into a fixable one.
       console.error('geocode-zip unknown', zip, found && found.why);
-      return reply(200, { zip, lat: null, lng: null, unknown: true, why: found && found.why });
+      return reply(200, { zip, lat: null, lng: null, unknown: true,
+                          why: (found && found.why) || 'no reason recorded', noCache });
     }
 
-    const { error: upErr } = await db.from('zip_codes').upsert({
-      zip, lat: found.lat, lng: found.lng,
-      city: found.city, state: found.state, updated_at: new Date().toISOString()
-    }, { onConflict: 'zip' });
-    if(upErr) console.error('zip cache write failed', zip, upErr.message);
+    if(db){
+      try{
+        const { error: upErr } = await db.from('zip_codes').upsert({
+          zip, lat: found.lat, lng: found.lng,
+          city: found.city, state: found.state, updated_at: new Date().toISOString()
+        }, { onConflict: 'zip' });
+        if(upErr) console.error('zip cache write failed', zip, upErr.message);
+      }catch(e){ console.error('zip cache write threw', zip, e.message); }
+    }
 
     return reply(200, { zip, lat: found.lat, lng: found.lng,
-                        city: found.city, state: found.state, cached: false });
+                        city: found.city, state: found.state, cached: false, noCache });
 
   }catch(e){
     console.error('geocode-zip', e);
-    return reply(200, { zip, lat: null, lng: null, unknown: true });
+    // Carries the reason back rather than an anonymous "unknown". A silent
+    // failure here is indistinguishable from a postcode that does not exist.
+    return reply(200, { zip, lat: null, lng: null, unknown: true,
+                        why: 'handler threw: ' + (e && e.message), noCache });
   }
 };

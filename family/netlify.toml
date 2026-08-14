@@ -10,3 +10,10 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# Runs every fifteen minutes. The function itself decides whether to send:
+# at most one email per conversation every six hours, except the 13:00 UTC
+# run (about 9am in Maine) which sweeps up anything still waiting.
+# Cron is UTC — Netlify does not do local time.
+[functions."notify-messages"]
+  schedule = "*/15 * * * *"

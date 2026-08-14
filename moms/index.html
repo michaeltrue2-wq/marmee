@@ -601,6 +601,63 @@
     toast(away ? 'You\'re set to Away — no new matches' : 'You\'re Available again');
   }
   function takeBreak(){ toast('Matches paused — enjoy your break'); }
+
+  /* ---- Arriving and leaving ------------------------------------------
+     Hours were whatever Mike typed in afterwards, from memory. Two taps
+     turn them into a record with times on it: she gets paid for what she
+     actually worked, the Mom can see somebody came, and neither of them
+     has to argue about it later. */
+  const todayStr = () => { const d=new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+
+  function checkState(v){
+    if(!v) return 'none';
+    if(v.checked_out_at) return 'done';
+    if(v.checked_in_at)  return 'in';
+    return 'out';
+  }
+
+  function elapsedText(v){
+    if(!v || !v.checked_in_at) return '';
+    const end = v.checked_out_at ? new Date(v.checked_out_at) : new Date();
+    const mins = Math.max(0, Math.round((end - new Date(v.checked_in_at)) / 60000));
+    const h = Math.floor(mins/60), m = mins%60;
+    return h ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  // Only for a visit that is actually today — checking in from the sofa on
+  // Sunday for Tuesday's visit would make the record meaningless.
+  function canCheck(v){ return v && v.visit_date === todayStr() && v.status !== 'cancelled'; }
+
+  function checkButton(v){
+    if(!canCheck(v)) return '';
+    const st = checkState(v);
+    if(st === 'done') return `<button class="hbtn sec" disabled>Finished · ${elapsedText(v)}</button>`;
+    if(st === 'in')   return `<button class="hbtn" onclick="doCheckOut('${v.id}')">I'm finished · ${elapsedText(v)}</button>`;
+    return `<button class="hbtn" onclick="doCheckIn('${v.id}')">I've arrived</button>`;
+  }
+
+  async function doCheckIn(id){
+    try{
+      const { data, error } = await db.rpc('check_in', { p_visit: id });
+      if(error) throw error;
+      const v = myVisits.find(x=>x.id===id); if(v) v.checked_in_at = data;
+      renderAll();
+      toast('Checked in — have a good visit');
+    }catch(e){ toast('Could not check you in. Try again in a moment.'); }
+  }
+
+  async function doCheckOut(id){
+    try{
+      const { data, error } = await db.rpc('check_out', { p_visit: id });
+      if(error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      const v = myVisits.find(x=>x.id===id);
+      if(v && row){ v.checked_in_at = row.started; v.checked_out_at = row.ended; }
+      renderAll();
+      toast(row ? `Thank you — ${Math.floor(row.minutes/60)}h ${row.minutes%60}m recorded` : 'Recorded');
+    }catch(e){ toast('Could not record that. Try again in a moment.'); }
+  }
   const famName = id => famById[id] ? famById[id].name : 'A family';
   const momName = () => (me.first_name+' '+(me.last_initial||'')).trim();
 
@@ -633,6 +690,7 @@
            ? `<div class="det" style="opacity:.85">${esc(famById[next.family_id].address_notes)}</div>` : ''}
         <div class="tags">${arr(next.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         <div class="btns">
+          ${checkButton(next)}
           <button class="hbtn" onclick="openChat('${next.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Message${unreadBadge(next.family_id)}</button>
           <button class="hbtn sec" onclick="directions('${next.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg> Directions</button>
         </div></div>`;
@@ -677,6 +735,7 @@
             ${tasks.length? tasks.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}',this.checked)"><label>${esc(t.label)}</label></div>`).join('') : '<div style="color:var(--muted);font-size:var(--t-sm)">The Mom will add what she\'d like done.</div>'}
           </div>
           <div class="vacts">
+            ${canCheck(v) ? `<button class="actbtn" onclick="${checkState(v)==='in'?'doCheckOut':'doCheckIn'}('${v.id}')" ${checkState(v)==='done'?'disabled':''}>${checkState(v)==='done'?('Finished · '+elapsedText(v)):(checkState(v)==='in'?"I'm finished":"I've arrived")}</button>` : ''}
             <button class="actbtn" onclick="openChat('${v.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Message${unreadBadge(v.family_id)}</button>
             ${cl?`<a class="actbtn" href="${cl}" target="_blank"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg> Add to calendar</a>`:''}
             ${open?`<button class="actbtn" onclick="doResched('${v.id}')">Reschedule</button><button class="actbtn warn" onclick="doCancel('${v.id}')">Cancel</button>`:''}
@@ -1136,4 +1195,4 @@ async function resendConfirm(){
 </div>
 </body>
 </html>
-<!-- build: address-and-errors -->
+<!-- build: checkin -->
