@@ -569,10 +569,10 @@
   }
   async function addTask(id){
     const inp=document.getElementById('task-'+id); const label=(inp.value||'').trim(); if(!label) return; inp.value='';
-    try{ await db.from('visit_tasks').insert({visit_id:id,label}); await reloadVisits(); }catch(e){}
+    try{ await save(db.from('visit_tasks').insert({visit_id:id,label}), 'add task'); await reloadVisits(); }catch(e){ toast('Could not add that. Try again.'); }
   }
   async function toggleTask(taskId,done){
-    try{ await db.from('visit_tasks').update({done}).eq('id',taskId); await reloadVisits(); }catch(e){}
+    try{ await save(db.from('visit_tasks').update({done}).eq('id',taskId), 'toggle task'); await reloadVisits(); }catch(e){ toast('Could not save that. Try again.'); }
   }
   async function loadReviews(){
     myReviews={}; const ids=myVisits.map(v=>v.id); if(!ids.length) return;
@@ -764,6 +764,17 @@ function renderCardSummary(){
 // She is never asked for this at sign-up, and she should not be — it is the
 // one detail that only matters once a real person is coming to the door.
 // Only a Marm she is matched with can read it.
+// supabase-js RESOLVES with { data, error } — it does not throw. Every
+  // `try{ await db...update() }catch{}` in this file was therefore dead code:
+  // the write failed, the catch never fired, and the screen simply did not
+  // change. That is how the photo feature sat broken for weeks. Wrap a write
+  // in save() and a failure behaves like one.
+  async function save(builder, whatWentWrong){
+    const { data, error } = await builder;
+    if(error){ console.error(whatWentWrong, error); throw new Error(error.message); }
+    return data;
+  }
+
 async function openAddress(){
   const r = await openSheet({
     title: 'Where should she come?',
@@ -851,7 +862,9 @@ async function onAvatarPicked(input){
     toast('Uploading…');
     const path = `families/${me.id}/avatar.jpg`;
     await uploadPhoto(f, path, 600);
-    await db.from('families').update({ avatar_path: path }).eq('id', me.id);
+    // Same trap as the Marm app: the upload reported its errors, this write
+    // did not, so a failure left an orphaned file and a silent screen.
+    await save(db.from('families').update({ avatar_path: path }).eq('id', me.id), 'save avatar');
     me.avatar_path = path;
     await paintAvatar();
     toast('Photo updated.');
@@ -901,7 +914,8 @@ async function removeHomePhoto(path){
   const ok = await askConfirm('Remove this photo?', 'Your Marm will no longer see it.', 'Remove', true);
   if(!ok) return;
   try{
-    await db.storage.from('photos').remove([path]);
+    const { error: rmErr } = await db.storage.from('photos').remove([path]);
+    if(rmErr){ console.error('remove photo', rmErr); toast('Could not remove that photo.'); return; }
     _homePaths = _homePaths.filter(p=>p!==path);
     await paintHomePhotos();
     toast('Photo removed.');
@@ -1119,4 +1133,4 @@ async function resendConfirm(){
 </body>
 </html>
 <!-- rev: elements layout tabs -->
-<!-- build: address -->
+<!-- build: address-and-errors -->

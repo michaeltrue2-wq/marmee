@@ -396,6 +396,17 @@
   const initials = t => { const p=(t||'').replace(/^The /,'').trim().split(' '); return ((p[0]||'')[0]||'')+((p[1]||'')[0]||''); };
   // What she is walking into: the kind of home, and the stairs. Said before
   // the visit rather than discovered on the doorstep.
+  // supabase-js RESOLVES with { data, error } — it does not throw. Every
+  // `try{ await db...update() }catch{}` in this file was therefore dead code:
+  // the write failed, the catch never fired, and the screen simply did not
+  // change. That is how the photo feature sat broken for weeks. Wrap a write
+  // in save() and a failure behaves like one.
+  async function save(builder, whatWentWrong){
+    const { data, error } = await builder;
+    if(error){ console.error(whatWentWrong, error); throw new Error(error.message); }
+    return data;
+  }
+
   function homeLine(f){
     if(!f) return '';
     return [f.home_type, f.stairs].filter(Boolean).join(' · ');
@@ -703,7 +714,7 @@
   async function reloadVisits(){
     try{ const {data:v}=await db.from('visits').select('*').eq('mom_id',me.id); myVisits=v||[]; await loadTasks(); await loadReviews(); renderAll(); }catch(e){}
   }
-  async function toggleTask(id,done){ try{ await db.from('visit_tasks').update({done}).eq('id',id); await reloadVisits(); }catch(e){} }
+  async function toggleTask(id,done){ try{ await save(db.from('visit_tasks').update({done}).eq('id',id), 'toggle task'); await reloadVisits(); }catch(e){} }
   async function doCancel(id){
     const reason = await askCancelVisit();
     if(reason===null) return;
@@ -832,7 +843,10 @@
       toast('Uploading…');
       const path = `moms/${me.id}/avatar.jpg`;
       await uploadPhoto(f, path, 600);
-      await db.from('moms').update({ avatar_path: path }).eq('id', me.id);
+      // The upload above checks its error; this write did not. When it
+      // failed the photo sat in storage with nothing pointing at it, and she
+      // was told nothing at all.
+      await save(db.from('moms').update({ avatar_path: path }).eq('id', me.id), 'save avatar');
       me.avatar_path = path;
       await paintAvatar();
       toast('Photo updated.');
@@ -1122,4 +1136,4 @@ async function resendConfirm(){
 </div>
 </body>
 </html>
-<!-- build: address -->
+<!-- build: address-and-errors -->
