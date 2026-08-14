@@ -400,6 +400,26 @@
     if(!f) return '';
     return [f.home_type, f.stairs].filter(Boolean).join(' · ');
   }
+
+  // Where the house actually is. Shown only once she is matched, because
+  // my_households() only returns households she is working with.
+  function addressOf(f){
+    if(!f) return '';
+    return [f.address_line, f.neighborhood, f.zip].filter(Boolean).join(', ');
+  }
+
+  // Opens whatever maps app the phone prefers. Google's directions URL is the
+  // one that behaves on both iPhone and Android; Apple Maps handles it on iOS.
+  function directions(familyId){
+    const f = famById[familyId];
+    const dest = addressOf(f);
+    if(!dest){
+      toast('No address on file yet — message her, or ask Marmee.');
+      return;
+    }
+    window.open('https://www.google.com/maps/dir/?api=1&destination=' +
+                encodeURIComponent(dest), '_blank', 'noopener');
+  }
   function fmtDay(d){ if(!d) return 'Scheduled'; return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 
   let me = null, myVisits = [], famById = {}, visitTasks = {}, myReviews = {};
@@ -514,8 +534,14 @@
     myVisits = v || [];
     const famIds = [...new Set(myVisits.map(x=>x.family_id).filter(Boolean))];
     if(famIds.length){
-      const { data: fam } = await db.from('families').select('*').in('id', famIds);
-      (fam||[]).forEach(f=> famById[f.id]=f);
+      // Reads through my_households() rather than the families table. The
+      // table policy hands a matched Marm the whole row, card brand and last
+      // four included — payment details she has no reason to see, and the
+      // address we are about to add makes that row more sensitive still.
+      // This returns only what she needs to do the visit.
+      const { data: fam, error: famErr } = await db.rpc('my_households');
+      if(famErr) console.error('households', famErr);
+      (fam||[]).filter(f=>famIds.includes(f.id)).forEach(f=> famById[f.id]=f);
     }
     await loadTasks(); await loadReviews();
     $('#app').style.display='block';
@@ -591,10 +617,13 @@
         <div class="when">${next.visit_time||''}</div>
         <div class="fam">${famName(next.family_id)}${famById[next.family_id]?(' · '+(famById[next.family_id].neighborhood||'')):''}</div>
         <div class="det">${[next.hours?next.hours+' hours':'', homeLine(famById[next.family_id])].filter(Boolean).join(' · ')}</div>
+        ${addressOf(famById[next.family_id])?`<div class="det">${esc(addressOf(famById[next.family_id]))}</div>`:''}
+        ${famById[next.family_id] && famById[next.family_id].address_notes
+           ? `<div class="det" style="opacity:.85">${esc(famById[next.family_id].address_notes)}</div>` : ''}
         <div class="tags">${arr(next.areas).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         <div class="btns">
           <button class="hbtn" onclick="openChat('${next.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Message${unreadBadge(next.family_id)}</button>
-          <button class="hbtn sec" onclick="stub('This would open directions.')"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg> Directions</button>
+          <button class="hbtn sec" onclick="directions('${next.family_id}')"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg> Directions</button>
         </div></div>`;
     } else {
       hero = `<div class="hero"><div class="hk">Your schedule</div>
@@ -1093,4 +1122,4 @@ async function resendConfirm(){
 </div>
 </body>
 </html>
-<!-- build: zip-and-icons -->
+<!-- build: address -->

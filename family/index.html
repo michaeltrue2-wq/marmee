@@ -248,6 +248,7 @@
   <div id="body"></div>
   <div class="section-t">Your account</div>
   <div class="prow" onclick="stub('This would let you edit your request.')"><span class="pic">✎</span><div class="pl"><b>Your request</b><span id="reqSummary">—</span></div><span class="arr">›</span></div>
+  <div class="prow" onclick="openAddress()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg></span><div class="pl"><b>Your address</b><span id="addrSummary">Not added yet</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openCard()"><span class="pic">▭</span><div class="pl"><b>Payment</b><span id="cardSummary">No card on file</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="openMessages()"><span class="pic"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg></span><div class="pl"><b>Messages<span id="msgBadge"></span></b><span>Chat with your Marm</span></div><span class="arr">›</span></div>
   <div class="prow" onclick="signout()"><span class="pic">⏻</span><div class="pl"><b>Sign out</b></div><span class="arr">›</span></div>
@@ -513,6 +514,8 @@
 
     const req=myReqs[0];
     $('#reqSummary').textContent = req ? (arr(req.areas).join(', ')+(req.frequency?(' · '+req.frequency):'')) : 'No request on file';
+    const addrEl = $('#addrSummary');
+    if(addrEl) addrEl.textContent = me.address_line ? me.address_line : 'Not added yet — your Marm cannot find you';
   }
 
   function escapeH(x){ return (x||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -756,6 +759,35 @@ function renderCardSummary(){
   el.textContent = me.card_last4
     ? ((me.card_brand||'Card').replace(/^./,c=>c.toUpperCase()) + ' ending ' + me.card_last4)
     : 'No card on file';
+}
+
+// She is never asked for this at sign-up, and she should not be — it is the
+// one detail that only matters once a real person is coming to the door.
+// Only a Marm she is matched with can read it.
+async function openAddress(){
+  const r = await openSheet({
+    title: 'Where should she come?',
+    sub: 'Only the Marm you are matched with sees this, and only once you are matched.',
+    bodyHTML:
+      '<label for="shAddr">Street address</label>' +
+      `<input id="shAddr" placeholder="24 Eastern Prom" value="${esc(me.address_line||'')}">` +
+      '<label for="shNotes">Anything she should know <span style="font-weight:400">&mdash; optional</span></label>' +
+      `<textarea id="shNotes" rows="3" placeholder="Park on the street, side door is easiest, the bell does not work">${esc(me.address_notes||'')}</textarea>`,
+    okLabel: 'Save'
+  });
+  if(!r.ok) return;
+  const line = (r.values.shAddr||'').trim();
+  if(!line){ toast('Add a street address so she can find you.'); return; }
+  try{
+    const { error } = await db.from('families')
+      .update({ address_line: line, address_notes: (r.values.shNotes||'').trim() || null })
+      .eq('id', me.id);
+    if(error) throw error;
+    me.address_line = line;
+    me.address_notes = (r.values.shNotes||'').trim() || null;
+    render();
+    toast('Saved');
+  }catch(e){ toast('Could not save that. Try again.'); }
 }
 
 async function openCard(){
@@ -1087,4 +1119,4 @@ async function resendConfirm(){
 </body>
 </html>
 <!-- rev: elements layout tabs -->
-<!-- build: zip-and-icons -->
+<!-- build: address -->

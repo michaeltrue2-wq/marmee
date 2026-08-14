@@ -893,6 +893,9 @@ function renderFamilies(){
         <div class="name">${esc(f.name)} <span class="pill ${f.status==='active'?'good':'wait'}">${f.status==='active'?'Active':'Lead'}</span></div>
         <div class="meta">${esc(f.neighborhood||'')}${f.joined_at?(' · Joined '+fmtDay(f.joined_at)):''}</div>
         ${homeLine(f)?`<div class="meta" style="margin-top:var(--s1)">${homeLine(f)}</div>`:''}
+        <div class="meta" style="margin-top:var(--s1)">${f.address_line
+          ? esc(f.address_line)
+          : '<span style="color:var(--clay);font-weight:600">No address — her Marm cannot find the house</span>'}</div>
         <div class="meta" style="margin-top:var(--s1)">${f.card_last4
           ? `▭ ${(f.card_brand||'Card').replace(/^./,c=>c.toUpperCase())} ending ${f.card_last4}`
           : `<span style="color:var(--clay);font-weight:600">No card on file — visits cannot be charged</span>`}</div>
@@ -1648,4 +1651,4 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
-<!-- build: coverage -->
+<!-- build: address -->
