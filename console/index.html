@@ -448,9 +448,13 @@ async function enterApp(signedInUser){
   const email = user?.email || 'Operator';
   $('#whoName').textContent = email.split('@')[0];
   $('#whoAva').textContent = (email[0]||'·').toUpperCase();
+  // The gate used to be hidden here, before loadAll(). If loading then failed
+  // or timed out, loginErr() wrote into #loginErr — which lives inside the
+  // gate that had just been hidden. On a slow connection you got a blank
+  // console and no explanation anywhere. Load first, reveal second.
+  await loadAll(true);
   $('#gate').classList.add('hidden');
   $('#shell').classList.add('open');
-  await loadAll();
   renderAll();
 }
 
@@ -467,7 +471,7 @@ async function must(builder, what){
   return data;
 }
 
-async function loadAll(){
+async function loadAll(strict){
   try{
     const [m,f,r,v,mt,vg,mk,wl,ms,zc,nb,tk,rv] = await Promise.all([
       db.from('moms').select('*').order('created_at',{ascending:true}),
@@ -487,7 +491,13 @@ async function loadAll(){
     state.moms = m.data||[]; state.families=f.data||[]; state.requests=r.data||[];
     state.visits=v.data||[]; state.matches=mt.data||[]; state.vetting=vg.data||[]; state.markets=mk.data||[]; state.waitlist=wl.data||[]; state.messages=ms.data||[]; state.zips=zc.data||[]; state.hoods=nb.data||[]; state.tasks=tk.data||[]; state.reviews=rv.data||[];
     if(m.error||f.error||r.error||v.error||mt.error||vg.error||mk.error||wl.error||ms.error||zc.error||nb.error||tk.error||rv.error){ toast('Loaded, but some data was blocked — did the access rules run?'); }
-  }catch(e){ toast('Could not load data. Check your connection.'); }
+  }catch(e){
+    // Sign-in needs to know, so it can say so while the gate is still on
+    // screen. Every other caller is a refresh after a write and has its own
+    // error handling, so for those a toast is still the right response.
+    if(strict) throw new Error('Could not load your data. Check your connection and try again.');
+    toast('Could not load data. Check your connection.');
+  }
 }
 
 /* ================= NAV ================= */
@@ -898,7 +908,12 @@ function renderFamilies(){
   let html = `<div class="panel"><div class="panel-head"><h3>Your Moms</h3><span class="count">${state.families.length} households</span></div>`;
   if(!state.families.length){ html += `<div class="empty"><b>No Moms yet</b>Add them here or they arrive from the Mom app.</div>`; }
   state.families.forEach(f=>{
-    const v = state.visits.filter(x=>x.family_id===f.id);
+    // visits comes back unordered and included cancelled ones, so this
+    // showed whichever row happened to be first — sometimes a Marm who had
+    // been replaced, sometimes one whose only visit was cancelled.
+    const v = state.visits
+      .filter(x=>x.family_id===f.id && x.status !== 'cancelled')
+      .sort((a,b)=> String(b.visit_date||'').localeCompare(String(a.visit_date||'')));
     const mom = v.length ? state.moms.find(m=>m.id===v[0].mom_id) : null;
     const planTag = mom ? `<span class="tag hit">With ${momName(mom)}</span>` : `<span class="tag">No Marm yet</span>`;
     html += `<div class="row">
@@ -1187,6 +1202,7 @@ function openMatch(rid){
   }).join('') : `<div class="empty"><b>No active Marms yet</b>Approve a Marm in the Marms tab first.</div>`;
   $('#scrim').classList.add('open'); $('#drawer').classList.add('open');
 }
+function setSheetTime(v){ const el=document.getElementById('shTime'); if(el) el.value=v; }
 function setTime(v){ const el=$('#svTime'); if(el){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); } showSeriesEnd(); }
 
 // Visit times are stored the way they read — "9:00a", "1:00p". Sorting those
@@ -1344,7 +1360,13 @@ async function createVisit(){
   if(!rawTime){ toast('Pick a time — the Marm needs to know when to arrive.'); return; }
   const time = to12h(rawTime);
   const hours = parseFloat($('#svHours').value) || 3;
-  const req = state.requests.find(r=>r.family_id===p.family_id);
+  // Took the first request for the household regardless of status, so a
+  // household with an old closed request got the old request's areas written
+  // onto a brand new visit. Prefer the matched or open one, newest first.
+  const reqs = state.requests
+    .filter(r=>r.family_id===p.family_id)
+    .sort((a,b)=> String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const req = reqs.find(r=>r.status==='matched') || reqs.find(r=>r.status==='open') || reqs[0];
   const areas = req ? arr(req.areas) : [];
   closeDrawer();
   try{
@@ -1465,6 +1487,7 @@ async function completeVisit(id){
       `<div class="meta" id="shCalc" style="margin:calc(-1 * var(--s3)) 0 var(--s4)"></div>`,
     okLabel: 'Mark done',
     cancelLabel: 'Not yet',
+    validate: v => (Number(v.shHours) > 0 ? null : 'Enter the hours worked.'),
     // Without this the calculator quoted $28/hr while the confirmation two
     // taps later quoted the visit's real rate.
     rate
@@ -1592,7 +1615,8 @@ async function markBgClear(mid){
     sub: `${m.first_name}. Record the reference so this is auditable later.`,
     bodyHTML: '<label for="shRef">Checkr report ID or reference</label>'
             + '<input id="shRef" placeholder="e.g. Checkr 8f2c… or \'clear, 12 Aug\'">',
-    okLabel: 'Mark clear'
+    okLabel: 'Mark clear',
+    validate: v => ((v.shRef||'').trim() ? null : 'Add a reference so this can be checked later.')
   });
   if(!r.ok) return;
   if(!r.values.shRef){ toast('Add a reference so this can be checked later.'); return; }
@@ -1619,14 +1643,28 @@ async function markBgClear(mid){
 
 /* ---- ST-1: in-app sheet -------------------------------------------------
    openSheet() resolves {ok, values} where values is keyed by input id.     */
-let _sheetRes=null;
+let _sheetRes=null, _sheetValidate=null;
+function _sheetErr(msg){
+  const e=document.getElementById('sheetErr');
+  if(!e) return;
+  e.textContent=msg||''; e.style.display=msg?'block':'none';
+}
 function _sheetClose(ok){
   const body=document.getElementById('sheetBody');
   const values={};
   body.querySelectorAll('input,textarea,select').forEach(el=>{ values[el.id]=el.value; });
+
+  // Validation used to run after the sheet had gone, so a missing field meant
+  // reopening it and retyping everything. Say it here, with her answers still
+  // on screen, and keep the sheet open.
+  if(ok && _sheetValidate){
+    const problem = _sheetValidate(values);
+    if(problem){ _sheetErr(problem); return; }
+  }
+  _sheetErr('');
   document.getElementById('sheet').classList.remove('on');
   document.getElementById('sheetScrim').classList.remove('on');
-  const r=_sheetRes; _sheetRes=null;
+  const r=_sheetRes; _sheetRes=null; _sheetValidate=null;
   if(r) r({ok:!!ok, values});
 }
 function wireHoursCalc(rate){
@@ -1639,6 +1677,8 @@ function wireHoursCalc(rate){
   h.addEventListener('input', paint); paint();
 }
 function openSheet(o){
+  _sheetValidate = o.validate || null;
+  _sheetErr('');
   document.getElementById('sheetTitle').textContent=o.title||'';
   const sub=document.getElementById('sheetSub');
   sub.textContent=o.sub||''; sub.style.display=o.sub?'block':'none';
@@ -1671,12 +1711,21 @@ async function askReschedule(){
   const r = await openSheet({
     title:'Pick a new time',
     sub:'We’ll let the other person know about the change.',
+    // Was a free text box. Whatever was typed went straight into the column
+    // that Booking fills with to12h() output, so the schedule ended up mixing
+    // "9:00a", "9:00 AM" and "morning" — and the sort could not read any of it.
     bodyHTML:'<label for="shDate">New date</label><input type="date" id="shDate" min="'+today+'">'
-            +'<label for="shTime">New time</label><input id="shTime" placeholder="9:00 AM">',
-    okLabel:'Save the change' });
+            +'<label for="shTime">New time</label><input type="time" id="shTime" step="900">'
+            +'<div class="chips" style="margin-top:var(--s2)">'
+            + ['08:00','09:00','10:00','12:00','13:00','15:00','17:00']
+                .map(t=>`<button type="button" class="timechip" onclick="setSheetTime('${t}')">${to12h(t)}</button>`).join('')
+            +'</div>',
+    okLabel:'Save the change',
+    validate: v => (v.shDate && v.shTime ? null : 'Pick both a date and a time.') });
   if(!r.ok) return null;
   if(!r.values.shDate || !r.values.shTime){ toast('Please pick both a date and a time.'); return null; }
-  return { date:r.values.shDate, time:r.values.shTime };
+  // Stored the way every other visit stores it, so the schedule can sort it.
+  return { date:r.values.shDate, time:to12h(r.values.shTime) };
 }
 
 /* ---- Password show/hide -------------------------------------------------
@@ -1714,6 +1763,7 @@ else attachPwToggles();
   <h3 id="sheetTitle"></h3>
   <div class="sheet-sub" id="sheetSub"></div>
   <div id="sheetBody"></div>
+  <div id="sheetErr" style="display:none;color:var(--clay);font-weight:600;font-size:var(--t-sm);margin-bottom:var(--s3)"></div>
   <div class="sheet-btns">
     <button class="sheet-cancel" id="sheetCancel" onclick="_sheetClose(false)">Never mind</button>
     <button class="sheet-ok" id="sheetOk" onclick="_sheetClose(true)">Confirm</button>
@@ -1722,4 +1772,4 @@ else attachPwToggles();
 </body>
 </html>
 <!-- rev: stripe card + charge -->
-<!-- build: tasks-reviews -->
+<!-- build: console-bugs -->
