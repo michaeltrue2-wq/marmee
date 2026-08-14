@@ -630,7 +630,91 @@ function renderCoverage(){
     });
   }
   html += `</div>`;
+
+  // ---- What each city charges and pays ---------------------------------
+  // These two numbers used to live in three places that had to agree: a
+  // constant in the console, a constant in the Marm's app, and a fallback in
+  // the payout function. Now they live here, and everything else reads them.
+  const markets = state.markets || [];
+  html += `<div class="panel"><div class="panel-head"><h3>Rates</h3>
+    <span class="count">${markets.length} market${markets.length===1?'':'s'}</span></div>`;
+
+  if(!markets.length){
+    html += `<div class="empty"><b>No markets yet</b>Add one before you can set a rate.</div>`;
+  } else {
+    markets.forEach(m=>{
+      const client = Number(m.hourly_rate_cents || 0) / 100;
+      const marm   = Number(m.marm_rate_cents   || 0) / 100;
+      const margin = client - marm;
+      const take   = client > 0 ? Math.round((margin / client) * 100) : 0;
+      // Below about 20% there is not enough left to cover Stripe, a
+      // background check and an hour of your time. Worth seeing at a glance.
+      const thin   = take < 20;
+      html += `<div class="row">
+        <div class="rmain">
+          <div class="name">${esc(m.name)} <span class="pill ${m.status==='live'?'good':'wait'}">${esc(m.status||'')}</span></div>
+          <div class="meta">Mom pays <b class="mono-num">$${client.toFixed(2).replace(/\.00$/,'')}</b>/hr
+            · Marm keeps <b class="mono-num">$${marm.toFixed(2).replace(/\.00$/,'')}</b>/hr
+            · you keep <b class="mono-num">$${margin.toFixed(2).replace(/\.00$/,'')}</b>/hr</div>
+          <div class="meta"${thin?' style="color:var(--clay);font-weight:600"':''}>${take}% of every visit${thin?' — thin once Stripe and vetting come out.':''}</div>
+        </div>
+        <button class="act ghost" onclick="editRates('${m.id}')">Change</button>
+      </div>`;
+    });
+    html += `<div class="row"><div class="rmain"><div class="meta">
+      Changing a rate only affects visits booked from now on. Every visit
+      already on the books keeps the price it was booked at.
+    </div></div></div>`;
+  }
+  html += `</div>`;
+
   $('#view-coverage').innerHTML = html;
+}
+
+// Editing the two numbers a market runs on. Guarded rather than trusted:
+// a fat-fingered zero here would either bankrupt the round or charge a
+// household $350 an hour, and neither shows up until money moves.
+async function editRates(marketId){
+  const m = (state.markets||[]).find(x => x.id === marketId);
+  if(!m){ toast('Could not find that market.'); return; }
+
+  const r = await openSheet({
+    title: 'Rates for ' + m.name,
+    sub: 'What the household pays, and what the Marm takes home. Her rate is a promise in its own right, not a share of the first number.',
+    bodyHTML:
+        '<label for="shClient">The Mom pays, per hour</label>'
+      + '<input id="shClient" type="number" step="0.25" min="1" max="200" value="'
+        + (Number(m.hourly_rate_cents||0)/100) + '">'
+      + '<label for="shMarm">The Marm keeps, per hour</label>'
+      + '<input id="shMarm" type="number" step="0.25" min="1" max="200" value="'
+        + (Number(m.marm_rate_cents||0)/100) + '">',
+    okLabel: 'Save rates',
+    validate: v => {
+      const c = Number(v.shClient), k = Number(v.shMarm);
+      if(!isFinite(c) || c <= 0) return 'The household rate has to be a number above zero.';
+      if(!isFinite(k) || k <= 0) return 'The Marm rate has to be a number above zero.';
+      if(k > c) return 'She cannot take home more than the household pays.';
+      if(k === c) return 'That leaves nothing to run Marmee on.';
+      if((c - k) / c < 0.10) return 'That leaves under 10% — Stripe alone takes about 3%. Are you sure?';
+      return null;
+    }
+  });
+  if(!r.ok) return;
+
+  try{
+    await must(db.from('markets').update({
+      hourly_rate_cents: Math.round(Number(r.values.shClient) * 100),
+      marm_rate_cents:   Math.round(Number(r.values.shMarm)   * 100)
+    }).eq('id', marketId), 'Saving the rates');
+
+    // Re-read rather than patching the local copy.
+    const { data } = await db.from('markets').select('*');
+    state.markets = data || state.markets;
+    renderCoverage();
+    toast('Rates saved for ' + m.name + '.');
+  }catch(e){
+    toast(e.message || 'Could not save those rates.');
+  }
 }
 
 // You can read every conversation, and both apps tell people so. That

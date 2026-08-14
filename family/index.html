@@ -151,9 +151,12 @@
            flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--t-sm);
            font-weight:700;padding:0;line-height:1}
   .gl-item.done .gl-tick{background:var(--pine);border-color:var(--pine)}
-  .gl-body{flex:1;min-width:0}
+  .gl-body{flex:1;min-width:0;cursor:pointer}
   .gl-body b{display:block;font-weight:500;word-break:break-word}
-  .gl-body span{color:var(--muted);font-size:var(--t-sm)}
+  .gl-body span{color:var(--muted);font-size:var(--t-sm);display:block;word-break:break-word}
+  /* The prompt to add a note has to be visible enough to be discovered and
+     quiet enough not to look like an unfinished row. */
+  .gl-addnote{opacity:.5;font-style:italic}
   .gl-item.done .gl-body b{text-decoration:line-through;color:var(--muted)}
   .gl-x{background:none;border:none;color:var(--muted);font-size:var(--t-lg);cursor:pointer;
         padding:var(--s2);line-height:1;flex-shrink:0}
@@ -982,9 +985,10 @@ function renderGrocery(){
   const row = g => '<div class="gl-item'+(g.done?' done':'')+'">'
     + '<button class="gl-tick" onclick="toggleGrocery(\''+g.id+'\','+(g.done?'true':'false')+')" '
     + 'aria-label="'+(g.done?'Not got yet':'Mark as got')+'">'+(g.done?'&#10003;':'')+'</button>'
-    + '<div class="gl-body"><b>'+esc(g.label)+'</b>'
-    + (g.note ? '<span>'+esc(g.note)+'</span>' : '')
-    + (g.done && g.added_by==='mom' ? '' : '')
+    + '<div class="gl-body" onclick="editGrocery(\''+g.id+'\')">'
+    + '<b>'+esc(g.label)+'</b>'
+    + (g.note ? '<span>'+esc(g.note)+'</span>'
+              : '<span class="gl-addnote">Add a brand or size</span>')
     + '</div>'
     + '<button class="gl-x" onclick="removeGrocery(\''+g.id+'\')" aria-label="Remove">&times;</button>'
     + '</div>';
@@ -1030,6 +1034,39 @@ async function addGrocery(){
     inp.value = label;          // never eat what she typed
     glErr('That didn\u2019t save. Tap Add to try again.');
   }
+}
+
+/* A note is the difference between "cheese" and a Marm standing in front of
+   forty cheeses. Brand, size, "the one in the green tub", "whatever's on
+   offer" — this is where the specificity goes, and it is optional, because a
+   form that demands it would stop her adding anything at all. */
+async function editGrocery(id){
+  const g = GROCERIES.find(x => x.id === id);
+  if(!g) return;
+
+  const r = await openSheet({
+    title: g.label,
+    sub: 'Anything she needs to know to pick the right one.',
+    bodyHTML:
+        '<label for="shLabel">Item</label>'
+      + '<input id="shLabel" maxlength="80" value="'+esc(g.label)+'">'
+      + '<label for="shNote">Brand, size, anything specific</label>'
+      + '<input id="shNote" maxlength="140" placeholder="Cabot sharp, the yellow block" value="'+esc(g.note||'')+'">',
+    okLabel: 'Save'
+  });
+  if(!r.ok) return;
+
+  const label = (r.values.shLabel || '').trim();
+  if(!label){ toast('An item needs a name.'); return; }
+
+  try{
+    const { error } = await db.from('grocery_items')
+      .update({ label, note: (r.values.shNote || '').trim() || null })
+      .eq('id', id);
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){ glErr('Could not save that.'); }
 }
 
 async function toggleGrocery(id, wasDone){

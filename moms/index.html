@@ -266,9 +266,13 @@
            flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--t-md);
            font-weight:700;padding:0;line-height:1}
   .gl-item.done .gl-tick{background:var(--pine);border-color:var(--pine)}
-  .gl-body{flex:1;min-width:0}
+  .gl-body{flex:1;min-width:0;cursor:pointer}
   .gl-body b{display:block;font-weight:500;font-size:var(--t-lg);word-break:break-word}
-  .gl-body span{color:var(--muted);font-size:var(--t-sm)}
+  .gl-body span{font-size:var(--t-md);display:block;word-break:break-word;margin-top:2px}
+  /* The note is the whole point on her side — it is what stops her standing
+     in front of forty cheeses. It reads darker here than on the Mom's screen. */
+  .gl-note-txt{color:var(--honey-deep);font-weight:600}
+  .gl-addnote{color:var(--muted);opacity:.55;font-style:italic;font-size:var(--t-sm)}
   .gl-item.done .gl-body b{text-decoration:line-through;color:var(--muted)}
   .gl-x{background:none;border:none;color:var(--muted);font-size:var(--t-lg);cursor:pointer;padding:var(--s2);line-height:1;flex-shrink:0}
   .gl-x:hover{color:var(--clay)}
@@ -1231,8 +1235,10 @@ function renderGrocery(){
   const row = g => '<div class="gl-item'+(g.done?' done':'')+'">'
     + '<button class="gl-tick" onclick="toggleGrocery(\''+g.id+'\','+(g.done?'true':'false')+')" '
     + 'aria-label="'+(g.done?'Not got yet':'Mark as got')+'">'+(g.done?'&#10003;':'')+'</button>'
-    + '<div class="gl-body"><b>'+esc(g.label)+'</b>'
-    + (g.note ? '<span>'+esc(g.note)+'</span>' : '')
+    + '<div class="gl-body" onclick="editGrocery(\''+g.id+'\')">'
+    + '<b>'+esc(g.label)+'</b>'
+    + (g.note ? '<span class="gl-note-txt">'+esc(g.note)+'</span>'
+              : '<span class="gl-addnote">Tap to leave a note</span>')
     + '</div>'
     // She can only remove what she put on herself. Deleting something the Mom
     // asked for, by mistake, in a shop, is not a mistake she can undo.
@@ -1278,6 +1284,35 @@ async function addGrocery(){
     inp.value = label;
     glErr('That didn\u2019t save. Tap Add to try again.');
   }
+}
+
+/* She can write on the note, never rewrite the item. "Store was out of the
+   Cabot, got Tillamook" is exactly the message that otherwise becomes a text
+   at 8pm — but renaming what the Mom asked for is not hers to do. */
+async function editGrocery(id){
+  const g = GROCERIES.find(x => x.id === id);
+  if(!g) return;
+
+  const r = await openSheet({
+    title: g.label,
+    sub: g.added_by === 'family'
+      ? 'She asked for this. Leave a note back if you need to.'
+      : 'You added this.',
+    bodyHTML:
+        '<label for="shNote">Note</label>'
+      + '<input id="shNote" maxlength="140" placeholder="Store was out — got Tillamook instead" value="'+esc(g.note||'')+'">',
+    okLabel: 'Save note'
+  });
+  if(!r.ok) return;
+
+  try{
+    const { error } = await db.from('grocery_items')
+      .update({ note: (r.values.shNote || '').trim() || null })
+      .eq('id', id);
+    if(error) throw error;
+    glErr('');
+    await loadGrocery();
+  }catch(e){ glErr('Could not save that note.'); }
 }
 
 async function toggleGrocery(id, wasDone){
