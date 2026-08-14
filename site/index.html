@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Marmee — good work, close to home</title>
+<meta name="description" content="Marmee introduces experienced women to families near them who need a hand around the house. A few hours a week, on the days you choose, paid after every visit. Greater Portland, Maine.">
+<meta property="og:title" content="Marmee — good work, close to home">
+<meta property="og:description" content="A few hours a week helping a family near you. You choose the work and the days. Paid after every visit.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px;
+    --s6:24px; --s7:32px; --s8:40px; --s9:48px; --s10:64px; --s12:96px;
+    --t-xs:12px; --t-sm:14px; --t-md:17px; --t-lg:19px; --t-xl:22px;
+    --t-2xl:26px; --t-3xl:32px; --t-4xl:40px; --t-5xl:54px;
+    --pine:#1E3A2E; --pine-deep:#152A21; --ivory:#F6F1E7; --ivory-dim:#EBE3D3;
+    --honey:#C8993A; --honey-soft:#E4B968; --honey-deep:#806116; --blush:#E6C6B4;
+    --ink:#15201A; --muted:#5C6B60; --line:#E0D8C6; --clay:#9D4526;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--ivory);color:var(--ink);
+       font-size:var(--t-md);line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.1;letter-spacing:-0.015em}
+  a{color:var(--honey-deep)}
+  .wrap{max-width:1020px;margin:0 auto;padding:0 var(--s5)}
+  .narrow{max-width:660px}
+
+  .ic{width:1.05em;height:1.05em;fill:none;stroke:currentColor;stroke-width:1.6;
+      stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.16em;flex-shrink:0}
+
+  /* header */
+  .top{position:sticky;top:0;z-index:20;background:rgba(246,241,231,.94);backdrop-filter:blur(8px);
+       border-bottom:1px solid var(--line)}
+  .top-in{max-width:1020px;margin:0 auto;padding:var(--s4) var(--s5);
+          display:flex;align-items:center;justify-content:space-between;gap:var(--s4)}
+  .brand{font-family:'Fraunces',serif;font-size:var(--t-xl);font-weight:600;color:var(--pine);
+         display:flex;align-items:center;gap:var(--s2);text-decoration:none}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--honey-soft);display:inline-block}
+  .toplink{color:var(--pine);text-decoration:none;font-weight:600;font-size:var(--t-sm);
+           border:1.5px solid var(--line);border-radius:100px;padding:var(--s2) var(--s4);white-space:nowrap}
+  .toplink:hover{border-color:var(--honey)}
+
+  /* hero */
+  .hero{padding:var(--s10) 0 var(--s9)}
+  .eyebrow{font-size:var(--t-xs);font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+           color:var(--honey-deep);margin-bottom:var(--s4)}
+  h1{font-size:var(--t-5xl);margin-bottom:var(--s5);max-width:16ch}
+  .lead{font-size:var(--t-lg);color:var(--muted);max-width:52ch;margin-bottom:var(--s7)}
+  .btns{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:var(--s2);background:var(--honey);color:var(--pine-deep);
+       text-decoration:none;font-weight:700;font-size:var(--t-md);padding:var(--s4) var(--s7);
+       border-radius:100px;min-height:56px;border:none;cursor:pointer}
+  .btn:hover{background:var(--honey-soft)}
+  .btn.ghost{background:transparent;color:var(--pine);border:1.5px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--honey);background:#fff}
+  .hint{font-size:var(--t-sm);color:var(--muted);margin-top:var(--s4)}
+
+  /* bands */
+  .band{padding:var(--s10) 0;border-top:1px solid var(--line)}
+  .band.pine{background:var(--pine);color:var(--ivory);border-top:none}
+  .band.pine h2{color:var(--ivory)}
+  .band.pine .lead{color:rgba(246,241,231,.72)}
+  h2{font-size:var(--t-4xl);margin-bottom:var(--s4)}
+  h3{font-size:var(--t-xl);margin-bottom:var(--s2)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s5);margin-top:var(--s8)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:var(--s6)}
+  .card .ci{color:var(--honey-deep);font-size:var(--t-2xl);display:block;margin-bottom:var(--s3)}
+  .card p{color:var(--muted)}
+  .band.pine .card{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
+  .band.pine .card p{color:rgba(246,241,231,.75)}
+  .band.pine .card .ci{color:var(--honey-soft)}
+
+  /* steps */
+  ol.steps{list-style:none;margin-top:var(--s8);display:grid;gap:var(--s5)}
+  ol.steps li{display:flex;gap:var(--s5);align-items:flex-start}
+  .num{width:38px;height:38px;border-radius:50%;background:var(--pine);color:var(--honey-soft);
+       font-family:'Fraunces',serif;font-weight:600;display:flex;align-items:center;justify-content:center;
+       flex-shrink:0;font-size:var(--t-md)}
+  ol.steps b{display:block;font-size:var(--t-lg);font-family:'Fraunces',serif;font-weight:500}
+  ol.steps span{color:var(--muted)}
+
+  /* quote */
+  .quote{font-family:'Fraunces',serif;font-size:var(--t-2xl);line-height:1.35;font-style:italic;
+         max-width:24ch;color:var(--pine)}
+  .band.pine .quote{color:var(--ivory)}
+
+  /* mom band */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:var(--s9);align-items:center}
+  @media (max-width:760px){
+    .split{grid-template-columns:1fr;gap:var(--s6)}
+    h1{font-size:var(--t-4xl)}
+    h2{font-size:var(--t-3xl)}
+    .hero{padding:var(--s8) 0 var(--s7)}
+    .band{padding:var(--s8) 0}
+  }
+
+  footer{border-top:1px solid var(--line);padding:var(--s7) 0 var(--s9);color:var(--muted);font-size:var(--t-sm)}
+  footer a{color:var(--muted)}
+  .foot-in{display:flex;flex-wrap:wrap;gap:var(--s5);justify-content:space-between}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 19.5s-7.5-4.4-7.5-9.2A4.1 4.1 0 0 1 12 8a4.1 4.1 0 0 1 7.5 2.3c0 4.8-7.5 9.2-7.5 9.2Z"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3.5v4M16 3.5v4"/></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="19" height="11" rx="1.6"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V19a1 1 0 0 0 1 1H10v-5h4v5h3.5a1 1 0 0 0 1-1V9.8"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.1"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="10.5" r="2.4"/><path d="M14.8 15.6a4.6 4.6 0 0 1 5.7 3.9"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s6.5-6 6.5-10.5a6.5 6.5 0 0 0-13 0C5.5 15 12 21 12 21Z"/><circle cx="12" cy="10.5" r="2.4"/></symbol>
+</defs></svg>
+
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="/"><span class="dot"></span>Marmee</a>
+    <a class="toplink" href="https://book.hiremarmee.com/family-request.html">I need help at home &rarr;</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Greater Portland, Maine</div>
+    <h1>Good work, close to home.</h1>
+    <p class="lead">Marmee introduces women who know how to run a household to families
+      near them who are drowning in one. A few hours a week, on the days that suit you,
+      paid after every visit.</p>
+    <div class="btns">
+      <a class="btn" href="https://moms.hiremarmee.com/apply.html">Apply to be a Marm &rarr;</a>
+      <a class="btn ghost" href="#how">How it works</a>
+    </div>
+    <p class="hint">Takes about three minutes, mostly tapping. Nothing sensitive to type.</p>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="narrow">
+      <h2>You have already done this job.</h2>
+      <p class="lead">You raised children. You ran a house. You know how a family stays
+        upright on a Tuesday. That is worth being paid for, and there are people ten
+        minutes away who need it badly.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <span class="ci"><svg class="ic"><use href="#i-heart"/></svg></span>
+        <h3>Only the work you enjoy</h3>
+        <p>You pick what you are matched for — the kitchen, the laundry, the school run,
+          keeping track of the calendar. Nothing else gets asked of you.</p>
+      </div>
+      <div class="card">
+        <span class="ci"><svg class="ic"><use href="#i-calendar"/></svg></span>
+        <h3>Your own hours</h3>
+        <p>You set the days and times. Most Marms work two or three mornings a week.
+          If you want a quiet month, you say so.</p>
+      </div>
+      <div class="card">
+        <span class="ci"><svg class="ic"><use href="#i-cash"/></svg></span>
+        <h3>Paid after every visit</h3>
+        <p>$28 an hour, sent straight to your bank once the visit is done.
+          No invoices, no waiting, no asking anyone for money.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band pine" id="how">
+  <div class="wrap">
+    <div class="narrow">
+      <h2>How it works.</h2>
+      <p class="lead">Four steps, and a real person at every one of them.</p>
+    </div>
+    <ol class="steps narrow">
+      <li><span class="num">1</span><div><b>Tell us about yourself</b>
+        <span>What you enjoy doing, when you are free, how far you will travel.
+          About three minutes.</span></div></li>
+      <li><span class="num">2</span><div><b>We check you properly</b>
+        <span>Two references we actually call, and a background check run through
+          Checkr. You never type a Social Security number into Marmee.</span></div></li>
+      <li><span class="num">3</span><div><b>We introduce you to one family</b>
+        <span>Not a list of strangers. One household near you, chosen because the
+          work, the hours and the distance genuinely fit.</span></div></li>
+      <li><span class="num">4</span><div><b>You go, and you get paid</b>
+        <span>Check in when you arrive, out when you leave. Your share is sent to your
+          bank. The same family, week after week.</span></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap split">
+    <div>
+      <h2>Being trusted in someone's home is the whole job.</h2>
+      <p class="lead" style="margin-bottom:0">So we take the checking seriously — for
+        your sake as much as theirs. Every Marm is vetted the same way, and the family
+        knows exactly what that means before you ever knock on the door.</p>
+    </div>
+    <div class="grid" style="margin-top:0;grid-template-columns:1fr">
+      <div class="card">
+        <span class="ci"><svg class="ic"><use href="#i-people"/></svg></span>
+        <h3>References, actually called</h3>
+        <p>Two people who know your work. A real conversation, not a form.</p>
+      </div>
+      <div class="card">
+        <span class="ci"><svg class="ic"><use href="#i-lock"/></svg></span>
+        <h3>A background check you do privately</h3>
+        <p>Completed directly with Checkr on their own secure pages.
+          Marmee never sees or stores your Social Security number.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" style="background:var(--ivory-dim)">
+  <div class="wrap split">
+    <div>
+      <div class="eyebrow">Looking for help instead?</div>
+      <h2>Your evenings back.</h2>
+      <p class="lead">If you are the one drowning — the dishes, the laundry, the
+        appointments nobody else remembers — Marmee finds you one experienced woman who
+        comes regularly and learns how your house works. The same familiar face, not a
+        rota of strangers.</p>
+      <div class="btns">
+        <a class="btn" href="https://book.hiremarmee.com/family-request.html">Find your Marm &rarr;</a>
+      </div>
+      <p class="hint">$28 an hour. No subscription, no minimum. You are only charged
+        after a visit happens.</p>
+    </div>
+    <div>
+      <p class="quote">“Someone who knows where things live, and notices what needs doing
+        before you ask.”</p>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap narrow" style="text-align:center">
+    <span class="ci" style="color:var(--honey-deep);font-size:var(--t-3xl)">
+      <svg class="ic"><use href="#i-pin"/></svg></span>
+    <h2 style="margin-top:var(--s3)">We are in Greater Portland.</h2>
+    <p class="lead" style="margin:0 auto var(--s7)">Portland, South Portland, Cape
+      Elizabeth, Falmouth, Scarborough, Westbrook and the towns around them. Somewhere
+      else? Start the form anyway — tell us your ZIP and we will let you know the day
+      we open near you.</p>
+    <div class="btns" style="justify-content:center">
+      <a class="btn" href="https://moms.hiremarmee.com/apply.html">Apply to be a Marm &rarr;</a>
+      <a class="btn ghost" href="https://book.hiremarmee.com/family-request.html">I need help at home</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <div><a class="brand" href="/" style="font-size:var(--t-lg)"><span class="dot"></span>Marmee</a>
+      <div style="margin-top:var(--s2)">Greater Portland, Maine</div></div>
+    <div>
+      <div><a href="https://moms.hiremarmee.com/">Marm sign in</a></div>
+      <div><a href="https://book.hiremarmee.com/">Mom sign in</a></div>
+      <div><a href="mailto:hello@hiremarmee.com">hello@hiremarmee.com</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
+<!-- build: site-v1 -->
