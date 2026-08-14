@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Marmee — $30 an hour helping a family near you</title>
 <meta name="description" content="$30 an hour, a few hours a week, at a family's house ten minutes from yours. You pick the work and the days, and you are paid after every visit. Greater Portland, Maine.">
 <meta property="og:title" content="Marmee — $30 an hour, ten minutes from your house">
@@ -102,6 +106,10 @@
   footer{border-top:1px solid var(--line);padding:var(--s7) 0 var(--s9);color:var(--muted);font-size:var(--t-sm)}
   footer a{color:var(--muted)}
   .foot-in{display:flex;flex-wrap:wrap;gap:var(--s5);justify-content:space-between}
+
+  /* The mark. currentColor on the arc so it is pine on ivory and ivory
+     on pine without a second copy of the file. */
+  .logomark{width:1.3em;height:1.3em;display:inline-block;vertical-align:-0.3em;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -118,7 +126,7 @@
 
 <header class="top">
   <div class="top-in">
-    <a class="brand" href="/"><span class="dot"></span>Marmee</a>
+    <a class="brand" href="/"><svg class="logomark" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="20" r="9" fill="#C8993A"/><path d="M9.5 20a14.5 14.5 0 0 0 29 0" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/></svg>Marmee</a>
     <a class="toplink" href="https://book.hiremarmee.com/family-request.html">I need help at home &rarr;</a>
   </div>
 </header>
@@ -161,8 +169,8 @@
       </div>
       <div class="card">
         <span class="ci"><svg class="ic"><use href="#i-people"/></svg></span>
-        <h3>One family, not a rota</h3>
-        <p>You go back to the same house. You learn the dog's name and where the
+        <h3>The same house every week</h3>
+        <p>You go back to the same family. You learn the dog's name and where the
           spare key is. That is the whole idea.</p>
       </div>
     </div>
@@ -223,9 +231,9 @@
     <div>
       <div class="eyebrow">Looking for help instead?</div>
       <h2>The same woman, every week.</h2>
-      <p class="lead">Not a rota of strangers. One experienced woman who comes on a
-        regular schedule, learns where things live, and knows what your Tuesday
-        looks like without being told again.</p>
+      <p class="lead">One woman, and it is the same one every week. She learns where
+        things live, what your Tuesday looks like, and which kid will not eat the
+        crusts — so you stop having to explain any of it.</p>
       <div class="btns">
         <a class="btn" href="https://book.hiremarmee.com/family-request.html">Find your Marm &rarr;</a>
       </div>
@@ -266,7 +274,7 @@
 
 <footer>
   <div class="wrap foot-in">
-    <div><a class="brand" href="/" style="font-size:var(--t-lg)"><span class="dot"></span>Marmee</a>
+    <div><a class="brand" href="/" style="font-size:var(--t-lg)"><svg class="logomark" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="20" r="9" fill="#C8993A"/><path d="M9.5 20a14.5 14.5 0 0 0 29 0" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/></svg>Marmee</a>
       <div style="margin-top:var(--s2)">Greater Portland, Maine</div></div>
     <div>
       <div><a href="https://moms.hiremarmee.com/">Marm sign in</a></div>
