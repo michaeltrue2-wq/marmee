@@ -52,6 +52,17 @@
   .card.on .tick{background:var(--honey);border-color:var(--honey)}
   .card .flag{position:absolute;top:-11px;left:18px;background:var(--pine);color:var(--honey-soft);font-size:var(--t-xs);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:var(--s1) var(--s3);border-radius:100px}
   .field{margin-bottom:var(--s5)}
+  /* A message that must be seen wherever the person happens to be. Returning
+     from Google reloads the page at step one, so anything written into a
+     field inside step five is invisible — which is exactly how a real
+     failure looked like nothing happening at all. */
+  .topmsg{position:sticky;top:0;z-index:50;display:none;background:var(--clay);color:#fff;
+    padding:var(--s3) var(--s5);font-size:var(--t-md);font-weight:600;line-height:1.45}
+  .topmsg.on{display:block}
+  .topmsg a{color:#fff;text-decoration:underline}
+  .topmsg button{background:none;border:none;color:#fff;font-family:inherit;font-weight:700;
+    text-decoration:underline;cursor:pointer;padding:0;margin-left:var(--s2)}
+
   /* ---- Continue with Google ------------------------------------------
      Offered beside email and password, never instead of it. This is the age
      group where Gmail coverage is thinnest — plenty of Yahoo, AOL, Comcast
@@ -118,6 +129,7 @@
 </style>
 </head>
 <body>
+<div class="topmsg" id="topMsg"></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
 <defs>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V19a1 1 0 0 0 1 1H10v-5h4v5h3.5a1 1 0 0 0 1-1V9.8"/></symbol>
@@ -601,12 +613,34 @@ async function finishGoogle(){
     history.replaceState({}, '', location.pathname);
     i = steps.length - 1; show();
   }catch(e){
-    msg('We signed you in, but could not save your answers. ' + (e && e.message ? e.message : ''));
+    const m = (e && e.message) || '';
+    // The most likely failure is signing in with the account already used on
+    // the other side of Marmee. Say which, and where to go instead.
+    if(/other side/i.test(m)){
+      topMsg('That Google account is already registered as the Marm app. '
+           + '<a href="https://moms.hiremarmee.com/">Open the Marm app</a>, or tap Continue with Google again and pick a different account.', true);
+    } else {
+      topMsg('We signed you in, but could not save your answers. ' + esc(m));
+    }
+    history.replaceState({}, '', location.pathname);
   }
 }
+
+function topMsg(html, keepSignedOut){
+  const el = document.getElementById('topMsg');
+  if(!el) return;
+  el.innerHTML = html + ' <button onclick="signOutAndRetry()">Use a different account</button>';
+  el.classList.add('on');
+  window.scrollTo(0,0);
+}
+async function signOutAndRetry(){
+  try{ await db.auth.signOut(); }catch(e){}
+  location.replace(location.pathname);
+}
+function esc(x){ return String(x||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 finishGoogle();
 </script>
 </body>
 </html>
-<!-- build: google-signin -->
+<!-- build: google-fixes -->

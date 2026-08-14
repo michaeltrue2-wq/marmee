@@ -80,6 +80,17 @@
 
   /* fields */
   .field{margin-bottom:var(--s5)}
+  /* A message that must be seen wherever the person happens to be. Returning
+     from Google reloads the page at step one, so anything written into a
+     field inside step five is invisible — which is exactly how a real
+     failure looked like nothing happening at all. */
+  .topmsg{position:sticky;top:0;z-index:50;display:none;background:var(--clay);color:#fff;
+    padding:var(--s3) var(--s5);font-size:var(--t-md);font-weight:600;line-height:1.45}
+  .topmsg.on{display:block}
+  .topmsg a{color:#fff;text-decoration:underline}
+  .topmsg button{background:none;border:none;color:#fff;font-family:inherit;font-weight:700;
+    text-decoration:underline;cursor:pointer;padding:0;margin-left:var(--s2)}
+
   /* ---- Continue with Google ------------------------------------------
      Offered beside email and password, never instead of it. This is the age
      group where Gmail coverage is thinnest — plenty of Yahoo, AOL, Comcast
@@ -212,6 +223,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div class="topmsg" id="topMsg"></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
 <defs>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.2 12 4l9 7.2"/><path d="M5.5 9.8V19a1 1 0 0 0 1 1H10v-5h4v5h3.5a1 1 0 0 0 1-1V9.8"/></symbol>
@@ -398,8 +410,8 @@
   <!-- 5 VERIFY -->
   <div class="step">
     <div class="eyebrow">Step 5 · Last thing</div>
-    <h1>A quick background check.</h1>
-    <p class="lead">Every Marm is checked — it's what lets Moms trust us. Here's the part we promised would be painless.</p>
+    <h1>Create your login.</h1>
+    <p class="lead">So you can come back and see how your application is going. Nothing sensitive gets typed here.</p>
       <button type="button" class="gbtn" onclick="withGoogle()">
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.4h11.9c-.2 2-1.5 4.9-4.4 6.9l6.7 5.2c3.9-3.6 6.9-8.9 6.9-15.4z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.4c-1.9 1.3-4.4 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.1l-7.1 5.5C8 41 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.5 28.4c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4l-7.1-5.5C3 17 2.3 20.4 2.3 24s.7 7 1.9 9.9l7.3-5.5z"/><path fill="#EA4335" d="M24 10.2c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 3.6 29.9 1.5 24 1.5 15.4 1.5 8 6.5 4.2 13.8l7.3 5.5c1.8-5.3 6.7-9.1 12.5-9.1z"/></svg>
         Continue with Google
@@ -414,6 +426,8 @@
       <input type="password" id="pass" placeholder="At least 6 characters" autocomplete="new-password">
     </div>
     <div id="finishMsg" style="display:none;color:var(--clay);font-weight:600;font-size:var(--t-md);margin:4px 0 16px"></div>
+    <h2 style="margin-top:var(--s8)">And a quick background check.</h2>
+    <p class="lead">Every Marm is checked — it's what lets Moms trust us. This is the part we promised would be painless.</p>
     <div class="secure">
       <span class="si"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg></span>
       <div><b>We'll text you a private, secure link.</b>
@@ -909,9 +923,31 @@ async function finishGoogle(){
     history.replaceState({}, '', location.pathname);
     i = steps.length - 1; show();
   }catch(e){
-    msg('We signed you in, but could not save your answers. ' + (e && e.message ? e.message : ''));
+    const m = (e && e.message) || '';
+    // The most likely failure is signing in with the account already used on
+    // the other side of Marmee. Say which, and where to go instead.
+    if(/other side/i.test(m)){
+      topMsg('That Google account is already registered as the Mom\u2019s app. '
+           + '<a href="https://book.hiremarmee.com/">Open the Mom\u2019s app</a>, or tap Continue with Google again and pick a different account.', true);
+    } else {
+      topMsg('We signed you in, but could not save your answers. ' + esc(m));
+    }
+    history.replaceState({}, '', location.pathname);
   }
 }
+
+function topMsg(html, keepSignedOut){
+  const el = document.getElementById('topMsg');
+  if(!el) return;
+  el.innerHTML = html + ' <button onclick="signOutAndRetry()">Use a different account</button>';
+  el.classList.add('on');
+  window.scrollTo(0,0);
+}
+async function signOutAndRetry(){
+  try{ await db.auth.signOut(); }catch(e){}
+  location.replace(location.pathname);
+}
+function esc(x){ return String(x||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 finishGoogle();
 </script>
@@ -930,4 +966,4 @@ finishGoogle();
 <div class="toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
 </body>
 </html>
-<!-- build: google-signin -->
+<!-- build: google-fixes -->
